@@ -1,0 +1,14 @@
+#include <GLFW/glfw3.h>
+#include "window.h" 
+
+class WindowGlfw : public Window
+{
+	public:
+		WindowGlfw(unsigned int w, unsigned int h);
+		~WindowGlfw();
+		void getVulkanSurface(void *instance ,void *surface) const override;
+		const Inputs& checkInputs() override;
+		void addRequiredWindowExt(std::vector<const char*> &extensions) const override;
+	private:
+		GLFWwindow *window;
+};
