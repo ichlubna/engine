@@ -204,7 +204,7 @@ void GpuVulkan::createSwapChain()
 
 	auto winSize = windowPtr->getSize();
     //might differ TODO
-	extent = {winSize.width, winSize.height};
+	extent = vk::Extent2D(winSize.width, winSize.height);
 
 	unsigned int imageCount = surfaceCapabilities.minImageCount + 1; 
 	if(surfaceCapabilities.maxImageCount > 0 && imageCount > surfaceCapabilities.maxImageCount )
@@ -237,7 +237,7 @@ void GpuVulkan::createSwapChain()
     device.getSwapchainImagesKHR(swapChain, &imageCount, nullptr);
 	swapChainImages.resize(imageCount);
 	device.getSwapchainImagesKHR(swapChain, &imageCount, swapChainImages.data());
-	
+    
     createSwapChainImageViews(format.format);
 }
 
@@ -287,12 +287,42 @@ vk::ShaderModule GpuVulkan::createShaderModule(std::vector<char> source)
     return module;
 }  
 
+void GpuVulkan::createRenderPass()
+{
+    vk::AttachmentDescription colorAttachement;
+    colorAttachement.setSamples(vk::SampleCountFlagBits::e1)
+                    .setLoadOp(vk::AttachmentLoadOp::eClear)
+                    .setStoreOp(vk::AttachmentStoreOp::eStore)
+                    .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                    .setInitialLayout(vk::ImageLayout::eUndefined)
+                    .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+    vk::AttachmentReference colorAttachementRef;
+    colorAttachementRef .setAttachment(0)
+                        .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+    vk::SubpassDescription subpass;
+    subpass .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+            .setColorAttachmentCount(1)
+            .setPColorAttachments(&colorAttachementRef);
+
+    vk::RenderPassCreateInfo createInfo;
+    createInfo  .setAttachmentCount(1)
+                .setPAttachments(&colorAttachement)
+                .setSubpassCount(1)
+                .setPSubpasses(&subpass);
+
+    if(device.createRenderPass(&createInfo, nullptr, &renderPass) != vk::Result::eSuccess)
+        throw std::runtime_error("Cannot create render pass.");
+}       
+
 void GpuVulkan::createGraphicsPipeline()
 {
     auto vertexShader = loadShader("../precompiled/vertex.spv"); 
     auto fragmentShader = loadShader("../precompiled/fragment.spv");
     vk::ShaderModule vertexModule = createShaderModule(vertexShader); 
-    vk::ShaderModule fragmentModule = createShaderModule(vertexShader);
+    vk::ShaderModule fragmentModule = createShaderModule(fragmentShader);
 
     std::vector<vk::PipelineShaderStageCreateInfo> shaderStages(2);
     shaderStages.at(0)  .setStage(vk::ShaderStageFlagBits::eVertex)
@@ -347,6 +377,113 @@ void GpuVulkan::createGraphicsPipeline()
                     .setPSampleMask(nullptr)
                     .setAlphaToCoverageEnable(false)
                     .setAlphaToOneEnable(false);
+
+    vk::PipelineColorBlendAttachmentState colorBlendAttachement;
+    colorBlendAttachement   .setColorWriteMask( vk::ColorComponentFlagBits::eR |
+                                                vk::ColorComponentFlagBits::eG |
+                                                vk::ColorComponentFlagBits::eB |
+                                                vk::ColorComponentFlagBits::eA)
+                            .setBlendEnable(false)
+                            .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
+                            .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+                            .setColorBlendOp(vk::BlendOp::eAdd)
+                            .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+                            .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+                            .setAlphaBlendOp(vk::BlendOp::eAdd);
+
+    vk::PipelineColorBlendStateCreateInfo blendStateInfo;
+    blendStateInfo  .setLogicOpEnable(false)
+                    .setLogicOp(vk::LogicOp::eCopy)
+                    .setAttachmentCount(1)
+                    .setPAttachments(&colorBlendAttachement)
+                    .setBlendConstants({0.0f,0.0f,0.0f,0.0f});
+
+    vk::PipelineLayoutCreateInfo layoutInfo;
+    layoutInfo  .setSetLayoutCount(0)
+                .setPSetLayouts(nullptr)
+                .setPushConstantRangeCount(0)
+                .setPPushConstantRanges(nullptr);
+
+    if(device.createPipelineLayout(&layoutInfo, nullptr, &pipelineLayout) != vk::Result::eSuccess)
+        throw std::runtime_error("Cannot create pipeline layout.");
+
+    vk::GraphicsPipelineCreateInfo createInfo;
+    createInfo  .setStageCount(shaderStages.size())
+                .setPStages(shaderStages.data())
+                .setPVertexInputState(&vertexInputInfo)
+                .setPInputAssemblyState(&inputAssemblyInfo)
+                .setPViewportState(&viewportStateInfo)
+                .setPRasterizationState(&rasterizerInfo)
+                .setPMultisampleState(&multisampleInfo)
+                .setPDepthStencilState(nullptr)
+                .setPColorBlendState(&blendStateInfo)
+                .setPDynamicState(nullptr)
+                .setLayout(pipelineLayout)
+                .setRenderPass(renderPass)
+                .setSubpass(0)
+                .setBasePipelineHandle(nullptr)
+                .setBasePipelineIndex(-1);
+
+    if(device.createGraphicsPipelines(nullptr, 1, &createInfo, nullptr, &graphicsPipeline) != vk::Result::eSuccess)
+        throw std::runtime_error("Cannot create graphics pipeline.");
+}
+
+void GpuVulkan::createFramebuffers()
+{
+    for(auto imageView : swapChainImageViews)
+    {
+        std::vector<vk::ImageView> attachments;
+        attachments.push_back(imageView);
+    
+        vk::FramebufferCreateInfo createInfo;
+        createInfo  .setRenderPass(renderPass)
+                    .setAttachmentCount(attachments.size())
+                    .setPAttachments(attachments.data())
+                    .setWidth(extent.width)
+                    .setHeight(extent.height)
+                    .setLayers(1);
+
+        swapChainFramebuffers.push_back(vk::Framebuffer());
+        if(device.createFramebuffer(&createInfo, nullptr, &swapChainFramebuffers.back()) != vk::Result::eSuccess)
+            throw std::runtime_error("Cannto create frame buffer.");
+    }
+}
+
+void GpuVulkan::createCommandPool()
+{
+    vk::CommandPoolCreateInfo createInfo;
+    createInfo  .setQueueFamilyIndex(queueFamilyIDs.graphics);
+
+    if(device.createCommandPool(&createInfo, nullptr, &commandPool) != vk::Result::eSuccess)
+        throw std::runtime_error("Cannot create command pool.");
+}
+
+void GpuVulkan::createCommandBuffers()
+{
+    commandBuffers.resize(swapChainFramebuffers.size());
+    
+    vk::CommandBufferAllocateInfo allocInfo;
+    allocInfo   .setCommandPool(commandPool)
+                .setLevel(vk::CommandBufferLevel::ePrimary)
+                .setCommandBufferCount(commandBuffers.size());
+
+    if(device.allocateCommandBuffers(&allocInfo, commandBuffers.data()) != vk::Result::eSuccess)
+        throw std::runtime_error("Failed to allocate command buffers.");
+
+    for(auto buffer : commandBuffers)
+    {
+        vk::CommandBufferBeginInfo bufferBeginInfo;
+        bufferBeginInfo   .setFlags(vk::CommandBufferUsageFlagBits::eSimultaneousUse)
+                    .setPInheritanceInfo(nullptr);
+
+        if(buffer.begin(&bufferBeginInfo) != vk::Result::eSuccess)
+            throw std::runtime_error("Command buffer recording couldn't begin.");
+    
+        vk::RenderPassBeginInfo passBeginInfo;
+        passBeginInfo   .setRenderPass(renderPass)
+                        .setFramebuffer(buffer. )
+    }
+
 }
 
 GpuVulkan::GpuVulkan(Window* w) : Gpu(w)
@@ -356,6 +493,7 @@ GpuVulkan::GpuVulkan(Window* w) : Gpu(w)
 	createDevice();
 	createSurface();
 	createSwapChain();
+    createRenderPass();
     createGraphicsPipeline();
 }
 
@@ -365,5 +503,4 @@ GpuVulkan::~GpuVulkan()
 
 void GpuVulkan::render() const
 {
-
 }

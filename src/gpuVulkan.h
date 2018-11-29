@@ -8,6 +8,13 @@ class GpuVulkan : public Gpu
 		GpuVulkan(Window* w);
 		~GpuVulkan();
 	private:
+        struct SwapChainFrame
+        {
+            vk::Image image;
+            vk::ImageView imageView;
+            vk::Framebuffer frameBuffer;
+        };
+
 		vk::Instance instance;
 		vk::PhysicalDevice physicalDevice;
 		vk::Device device;
@@ -17,8 +24,16 @@ class GpuVulkan : public Gpu
 		vk::SurfaceKHR surface;
 		vk::SwapchainKHR swapChain;
 	    vk::Extent2D extent;
-		std::vector<vk::Image> swapChainImages;
+        vk::RenderPass renderPass;
+        vk::PipelineLayout pipelineLayout;
+        vk::Pipeline graphicsPipeline;
+        vk::CommandPool commandPool;
+
+        std::vector<SwapChainFrame> frames;
+        std::vector<vk::Image> swapChainImages;
         std::vector<vk::ImageView> swapChainImageViews;
+        std::vector<vk::Framebuffer> swapChainFramebuffers;
+        std::vector<vk::CommandBuffer> commandBuffers;
 		std::vector<const char*> validationLayers;
 		struct
 		{
@@ -34,6 +49,10 @@ class GpuVulkan : public Gpu
 		void createSurface();
 		void createSwapChain();
 		void createSwapChainImageViews(vk::Format format);
+        void createRenderPass();
         void createGraphicsPipeline();
+        void createFramebuffers();
+        void createCommandPool();
+        void createCommandBuffers();
 		bool isDeviceOK(const vk::PhysicalDevice &potDevice);
 };
