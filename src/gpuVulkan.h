@@ -10,49 +10,60 @@ class GpuVulkan : public Gpu
 	private:
         struct SwapChainFrame
         {
-            vk::Image image;
-            vk::ImageView imageView;
-            vk::Framebuffer frameBuffer;
+            vk::UniqueImage image;
+            vk::UniqueImageView imageView;
+            vk::UniqueFramebuffer frameBuffer;
+            vk::UniqueCommandBuffer commandBuffer;
         };
-
-		vk::Instance instance;
+		
+        vk::UniqueInstance instance;
 		vk::PhysicalDevice physicalDevice;
-		vk::Device device;
-		vk::Queue graphicsQueue;
-		vk::Queue computeQueue;
-		vk::Queue presentQueue;
-		vk::SurfaceKHR surface;
-		vk::SwapchainKHR swapChain;
+		vk::UniqueDevice device;
+		vk::UniqueSurfaceKHR surface;
+		vk::UniqueSwapchainKHR swapChain;
+        vk::Format swapChainImgFormat;
 	    vk::Extent2D extent;
-        vk::RenderPass renderPass;
-        vk::PipelineLayout pipelineLayout;
-        vk::Pipeline graphicsPipeline;
-        vk::CommandPool commandPool;
+        vk::UniqueRenderPass renderPass;
+        vk::UniquePipelineLayout pipelineLayout;
+        vk::UniquePipeline graphicsPipeline;
+        vk::UniqueCommandPool commandPool;
 
-        std::vector<SwapChainFrame> frames;
-        std::vector<vk::Image> swapChainImages;
-        std::vector<vk::ImageView> swapChainImageViews;
-        std::vector<vk::Framebuffer> swapChainFramebuffers;
-        std::vector<vk::CommandBuffer> commandBuffers;
+        std::vector<std::unique_ptr<SwapChainFrame>> frames;
 		std::vector<const char*> validationLayers;
+
 		struct
 		{
 			int graphics{-1};
 			int present{-1};
 			int compute{-1};
 		} queueFamilyIDs;
+
+        struct
+        {
+            vk::UniqueSemaphore imgReady;
+            vk::UniqueSemaphore renderReady;
+        } semaphores;
+
+        struct
+        {
+            vk::Queue graphics;
+    		vk::Queue compute;
+    		vk::Queue present;
+        } queues;
+
         std::vector<char> loadShader(const char* path);
-        vk::ShaderModule createShaderModule(std::vector<char> source);
+        vk::UniqueShaderModule createShaderModule(std::vector<char> source);
 		void createInstance();
 		void selectPhysicalDevice();
 		void createDevice();
 		void createSurface();
 		void createSwapChain();
-		void createSwapChainImageViews(vk::Format format);
+		void createSwapChainImageViews();
         void createRenderPass();
         void createGraphicsPipeline();
         void createFramebuffers();
         void createCommandPool();
         void createCommandBuffers();
+        void createSemaphores();
 		bool isDeviceOK(const vk::PhysicalDevice &potDevice);
 };

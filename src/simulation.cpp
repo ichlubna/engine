@@ -34,6 +34,7 @@ void Simulation::run()
 	while(!close)
 	{
 		close = window->checkInputs().close;
+        gpu->render();
 	}
 }
 
