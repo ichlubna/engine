@@ -9,7 +9,7 @@ class Gpu
 {
 	public:
         //TODO multiple shaders/pipelines
-		virtual void render() const = 0;
+		virtual void render() = 0;
 		Gpu(Window *w) : windowPtr{w} {};
 	protected:
 		Window *windowPtr;

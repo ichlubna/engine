@@ -9,6 +9,8 @@ class WindowGlfw : public Window
 		void getVulkanSurface(void *instance ,void *surface) const override;
 		const Inputs& checkInputs() override;
 		void addRequiredWindowExt(std::vector<const char*> &extensions) const override;
+        Window::WinSize getFramebufferSize() const override;
+        void switchFullscreen() override;
 	private:
 		GLFWwindow *window;
 };

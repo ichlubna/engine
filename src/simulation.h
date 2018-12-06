@@ -13,4 +13,5 @@ class Simulation
 	private:
 		std::unique_ptr<Window> window;
 		std::unique_ptr<Gpu> gpu;	
+        void processinputs(Window::Inputs inputs);
 };

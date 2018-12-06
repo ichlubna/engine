@@ -4,7 +4,7 @@
 class GpuVulkan : public Gpu
 {
 	public:
-		void render() const override;
+		void render() override;
 		GpuVulkan(Window* w);
 		~GpuVulkan();
 	private:
@@ -15,6 +15,19 @@ class GpuVulkan : public Gpu
             vk::UniqueFramebuffer frameBuffer;
             vk::UniqueCommandBuffer commandBuffer;
         };
+        
+        struct PipelineSync
+        {
+            struct
+            {
+                vk::UniqueSemaphore imgReady;
+                vk::UniqueSemaphore renderReady;
+            } semaphores;
+            vk::UniqueFence fence;
+        };
+ 
+        const int CONCURRENT_FRAMES_COUNT = 2;
+        unsigned int processedFrame = 0;
 		
         vk::UniqueInstance instance;
 		vk::PhysicalDevice physicalDevice;
@@ -30,6 +43,7 @@ class GpuVulkan : public Gpu
 
         std::vector<std::unique_ptr<SwapChainFrame>> frames;
 		std::vector<const char*> validationLayers;
+        std::vector<PipelineSync> pipelineSync;
 
 		struct
 		{
@@ -38,11 +52,6 @@ class GpuVulkan : public Gpu
 			int compute{-1};
 		} queueFamilyIDs;
 
-        struct
-        {
-            vk::UniqueSemaphore imgReady;
-            vk::UniqueSemaphore renderReady;
-        } semaphores;
 
         struct
         {
@@ -58,12 +67,13 @@ class GpuVulkan : public Gpu
 		void createDevice();
 		void createSurface();
 		void createSwapChain();
+        void recreateSwapChain();
 		void createSwapChainImageViews();
         void createRenderPass();
         void createGraphicsPipeline();
         void createFramebuffers();
         void createCommandPool();
         void createCommandBuffers();
-        void createSemaphores();
+        void createPipelineSync();
 		bool isDeviceOK(const vk::PhysicalDevice &potDevice);
 };

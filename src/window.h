@@ -7,14 +7,15 @@ class Window
 	public:
 		struct WinSize
 		{
-			unsigned int width;
-			unsigned int height;
+			int width;
+			int height;
 		};
 		struct Inputs
 		{
-			enum KeyFlags {	KEY_ESC = 1,
-					KEY_LMB = 2, KEY_RMB = 4, KEY_MMB = 8,
-					KEY_W = 16, KEY_A = 32, KEY_S = 64, KEY_D = 128};
+			enum Keys {	ESC = 1,
+				    LMB = 2, RMB = 4, MMB = 8,
+					W = 16, A = 32, S = 64, D = 128,
+                    ALT = 256, ENTER = 512};
 			//expecting max 32 keys, plus possible modifiers
 			long keys {0};
 			double mouseX {0}, mouseY {0}, mouseScroll {0};
@@ -24,8 +25,10 @@ class Window
 		virtual const Inputs& checkInputs() = 0;
 		virtual void getVulkanSurface(void *instance, void *surface) const = 0;
 		virtual void addRequiredWindowExt(std::vector<const char*> &extensions) const = 0;
+        virtual WinSize getFramebufferSize() const = 0;	
+        virtual void switchFullscreen() = 0;
 
-		WinSize getSize() const {return {width, height};}		
+		//WinSize getSize() const {return {width, height};}
 		Window(unsigned int w, unsigned int h) : width{w}, height{h} {};
 	protected:
 		Inputs inputs;

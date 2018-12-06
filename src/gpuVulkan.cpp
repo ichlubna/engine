@@ -201,9 +201,11 @@ void GpuVulkan::createSwapChain()
 		else if(potPm == vk::PresentModeKHR::eImmediate)
 			presentMode = potPm;
 
-	auto winSize = windowPtr->getSize();
+	//auto winSize = windowPtr->getSize();
+	auto winSize = windowPtr->getFramebufferSize();
     //might differ TODO
 	extent = vk::Extent2D(winSize.width, winSize.height);
+	//extent = vk::Extent2D(1920,1200);
 
 	unsigned int imageCount = surfaceCapabilities.minImageCount + 1; 
 	if(surfaceCapabilities.maxImageCount > 0 && imageCount > surfaceCapabilities.maxImageCount )
@@ -508,40 +510,66 @@ void GpuVulkan::createCommandBuffers()
     }
 }
 
-void GpuVulkan::createSemaphores()
+void GpuVulkan::createPipelineSync()
 {
-    vk::SemaphoreCreateInfo createInfo;
-    if(!(semaphores.imgReady = device->createSemaphoreUnique(createInfo, nullptr)) ||
-       !(semaphores.renderReady = device->createSemaphoreUnique(createInfo, nullptr)))
-        throw std::runtime_error("Cannot create semaphores.");
+    pipelineSync.resize(CONCURRENT_FRAMES_COUNT);
+
+    for(auto &sync : pipelineSync)
+    {
+        vk::SemaphoreCreateInfo semCreateInfo;
+        vk::FenceCreateInfo fenCreateInfo;
+        fenCreateInfo.flags = vk::FenceCreateFlagBits::eSignaled;
+        if( !(sync.semaphores.imgReady = device->createSemaphoreUnique(semCreateInfo)) ||
+            !(sync.semaphores.renderReady = device->createSemaphoreUnique(semCreateInfo)) ||
+            !(sync.fence = device->createFenceUnique(fenCreateInfo)))
+            throw std::runtime_error("Cannot create pipeline synchronization.");
+    }
 }
 
-void GpuVulkan::render() const
+void GpuVulkan::render()
 {
+    device->waitForFences(1, &*pipelineSync.at(processedFrame).fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
+    device->resetFences(1, &*pipelineSync.at(processedFrame).fence);
+
     unsigned int imageID;
-    device->acquireNextImageKHR(*swapChain, std::numeric_limits<uint64_t>::max(), *semaphores.imgReady, nullptr, &imageID);
+    device->acquireNextImageKHR(*swapChain, std::numeric_limits<uint64_t>::max(), *pipelineSync.at(processedFrame).semaphores.imgReady, nullptr, &imageID);
     
     vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
     vk::SubmitInfo submitInfo;
     submitInfo  .setWaitSemaphoreCount(1)
-                .setPWaitSemaphores(&*semaphores.imgReady)
+                .setPWaitSemaphores(&*pipelineSync.at(processedFrame).semaphores.imgReady)
                 .setPWaitDstStageMask(waitStages)
                 .setCommandBufferCount(1)
                 .setPCommandBuffers(&*frames[imageID]->commandBuffer)
                 .setSignalSemaphoreCount(1)
-                .setPSignalSemaphores(&*semaphores.renderReady);
+                .setPSignalSemaphores(&*pipelineSync.at(processedFrame).semaphores.renderReady);
 
-    if(queues.graphics.submit(1, &submitInfo, nullptr) != vk::Result::eSuccess)
+    if(queues.graphics.submit(1, &submitInfo, *pipelineSync.at(processedFrame).fence) != vk::Result::eSuccess)
         throw std::runtime_error("Cannot submit draw command buffer.");
 
     vk::PresentInfoKHR presentInfo;
     presentInfo .setWaitSemaphoreCount(1)
-                .setPWaitSemaphores(&*semaphores.renderReady)
+                .setPWaitSemaphores(&*pipelineSync.at(processedFrame).semaphores.renderReady)
                 .setSwapchainCount(1)
                 .setPSwapchains(&*swapChain)
                 .setPImageIndices(&imageID);
 
-   queues.present.presentKHR(&presentInfo);
+    queues.present.presentKHR(&presentInfo);
+
+    processedFrame = (processedFrame+1) % CONCURRENT_FRAMES_COUNT;
+}
+
+void GpuVulkan::recreateSwapChain()
+{
+    device->waitIdle();
+
+	createSwapChain();
+    createSwapChainImageViews();
+    createRenderPass();
+    createGraphicsPipeline();
+    createFramebuffers();
+    createCommandPool();
+    createCommandBuffers();
 }
 
 GpuVulkan::GpuVulkan(Window* w) : Gpu(w)
@@ -557,7 +585,8 @@ GpuVulkan::GpuVulkan(Window* w) : Gpu(w)
     createFramebuffers();
     createCommandPool();
     createCommandBuffers();
-    createSemaphores();
+    //recreateSwapChain();
+    createPipelineSync();
 }
 
 GpuVulkan::~GpuVulkan()

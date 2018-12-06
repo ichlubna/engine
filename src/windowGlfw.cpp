@@ -7,7 +7,7 @@
 const WindowGlfw::Inputs& WindowGlfw::checkInputs()
 {
 	glfwPollEvents();
-	inputs.close = (glfwWindowShouldClose(window) || inputs.keys & Inputs::KEY_ESC);
+	inputs.close = (glfwWindowShouldClose(window) || inputs.keys & Inputs::Keys::ESC);
 
 	return inputs;
 }
@@ -20,6 +20,20 @@ const WindowGlfw::Extensions WindowGlfw::getRequiredExtensions() const
 	return ext;	
 }
 */
+
+Window::WinSize WindowGlfw::getFramebufferSize() const
+{
+    Window::WinSize size;
+    glfwGetFramebufferSize(window, &size.width, &size.height);
+    return size;
+}
+
+void WindowGlfw::switchFullscreen()
+{
+    GLFWmonitor *monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+}
 
 void WindowGlfw::getVulkanSurface(void *instance ,void *surface) const
 {
@@ -60,25 +74,34 @@ WindowGlfw::WindowGlfw(unsigned int w, unsigned int h) : Window{w,h}
 			switch(key)
 			{
 				case GLFW_KEY_ESCAPE:
-					flag = Inputs::KEY_ESC;
+					flag = Inputs::Keys::ESC;
 				break;	
 				
 				case GLFW_KEY_W:
-					flag = Inputs::KEY_W;
+					flag = Inputs::Keys::W;
 				break;
 
 				case GLFW_KEY_A:
-					flag = Inputs::KEY_A;
+					flag = Inputs::Keys::A;
 				break;
 
 				case GLFW_KEY_S:
-					flag = Inputs::KEY_S;
+					flag = Inputs::Keys::S;
 				break;
 
 				case GLFW_KEY_D:
-					flag = Inputs::KEY_D;
+					flag = Inputs::Keys::D;
 				break;	
 				
+                case GLFW_KEY_RIGHT_ALT:
+                case GLFW_KEY_LEFT_ALT:
+					flag = Inputs::Keys::ALT;
+				break;	
+			
+                case GLFW_KEY_ENTER:
+                    flag = Inputs::Keys::ENTER;
+                break;
+	
 				default:
 				break;
 			}
@@ -99,15 +122,15 @@ WindowGlfw::WindowGlfw(unsigned int w, unsigned int h) : Window{w,h}
 			switch(button)
 			{
 				case GLFW_MOUSE_BUTTON_LEFT:
-					flag = Inputs::KEY_LMB;
+					flag = Inputs::Keys::LMB;
 				break;	
 				
 				case GLFW_MOUSE_BUTTON_RIGHT:
-					flag = Inputs::KEY_RMB;
+					flag = Inputs::Keys::RMB;
 				break;
 	
 				case GLFW_MOUSE_BUTTON_MIDDLE:
-					flag = Inputs::KEY_MMB;
+					flag = Inputs::Keys::MMB;
 				break;		
 
 				default:
