@@ -29,24 +29,9 @@ Simulation::Simulation(GpuAPI gpuApi, WindowAPI windowApi)
 	}	
 }
 
-//TODO make it a class member of Inputs
-//Standalone class
-template <typename... Args>
-bool keysPressed(long keys, Args... args) {
-  return keys & composeKeys(args...);
-}
-template <typename T, typename... Args>
-bool composeKeys(T keyFlag, Args... args) {
-  return keyFlag | composeKeys(args...);
-}
-template <typename T>
-bool composeKeys(T t) {
-    return t;
-}
-
 void Simulation::processinputs(Window::Inputs inputs)
 {
-    if(keysPressed(inputs.keys, inputs.ALT, inputs.ENTER))
+    if(window->inputs.pressed(Inputs::ALT, Inputs::ENTER)))
         window->switchFullscreen();
 }
 

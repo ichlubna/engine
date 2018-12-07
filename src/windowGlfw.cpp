@@ -107,9 +107,9 @@ WindowGlfw::WindowGlfw(unsigned int w, unsigned int h) : Window{w,h}
 			}
 		
 			if(set)	
-				thisWindowGlfw->inputs.keys |= flag;
+				thisWindowGlfw->inputs.press(flag);
 			else
-				thisWindowGlfw->inputs.keys &= ~flag;
+				thisWindowGlfw->inputs.release(flag);
 		});
 	
 	glfwSetMouseButtonCallback(window, 
