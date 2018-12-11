@@ -4,22 +4,13 @@
 #include <iterator>
 #include "windowGlfw.h"
 
-const WindowGlfw::Inputs& WindowGlfw::checkInputs()
+const Inputs& WindowGlfw::getInputs()
 {
 	glfwPollEvents();
-	inputs.close = (glfwWindowShouldClose(window) || inputs.keys & Inputs::Keys::ESC);
-
-	return inputs;
+	inputs.close = glfwWindowShouldClose(window);
+	
+    return inputs;
 }
-/*#include <string.h>
-const WindowGlfw::Extensions WindowGlfw::getRequiredExtensions() const
-{
-	Extensions ext;
-	strcpy(ext.names, *glfwGetRequiredInstanceExtensions(&ext.count));
-	std::cout << ext.names;
-	return ext;	
-}
-*/
 
 Window::WinSize WindowGlfw::getFramebufferSize() const
 {
@@ -69,37 +60,37 @@ WindowGlfw::WindowGlfw(unsigned int w, unsigned int h) : Window{w,h}
 		{
 			WindowGlfw *thisWindowGlfw = reinterpret_cast<WindowGlfw*>(glfwGetWindowUserPointer(window));
 			bool set = (action == GLFW_PRESS);
-			long flag = 0;	
+			auto keyCode = Inputs::Key::ENTER;	
 
 			switch(key)
 			{
 				case GLFW_KEY_ESCAPE:
-					flag = Inputs::Keys::ESC;
+					keyCode = Inputs::Key::ESC;
 				break;	
 				
 				case GLFW_KEY_W:
-					flag = Inputs::Keys::W;
+					keyCode = Inputs::Key::W;
 				break;
 
 				case GLFW_KEY_A:
-					flag = Inputs::Keys::A;
+					keyCode = Inputs::Key::A;
 				break;
 
 				case GLFW_KEY_S:
-					flag = Inputs::Keys::S;
+					keyCode = Inputs::Key::S;
 				break;
 
 				case GLFW_KEY_D:
-					flag = Inputs::Keys::D;
+					keyCode = Inputs::Key::D;
 				break;	
 				
                 case GLFW_KEY_RIGHT_ALT:
                 case GLFW_KEY_LEFT_ALT:
-					flag = Inputs::Keys::ALT;
+					keyCode = Inputs::Key::ALT;
 				break;	
 			
                 case GLFW_KEY_ENTER:
-                    flag = Inputs::Keys::ENTER;
+                    keyCode = Inputs::Key::ENTER;
                 break;
 	
 				default:
@@ -107,9 +98,9 @@ WindowGlfw::WindowGlfw(unsigned int w, unsigned int h) : Window{w,h}
 			}
 		
 			if(set)	
-				thisWindowGlfw->inputs.press(flag);
+				thisWindowGlfw->inputs.press(keyCode);
 			else
-				thisWindowGlfw->inputs.release(flag);
+				thisWindowGlfw->inputs.release(keyCode);
 		});
 	
 	glfwSetMouseButtonCallback(window, 
@@ -117,30 +108,30 @@ WindowGlfw::WindowGlfw(unsigned int w, unsigned int h) : Window{w,h}
 		{
 			WindowGlfw *thisWindowGlfw = reinterpret_cast<WindowGlfw*>(glfwGetWindowUserPointer(window));
 			bool set = (action == GLFW_PRESS);
-			long flag = 0;	
+			auto keyCode = Inputs::Key::ENTER;	
 
 			switch(button)
 			{
 				case GLFW_MOUSE_BUTTON_LEFT:
-					flag = Inputs::Keys::LMB;
+					keyCode = Inputs::Key::LMB;
 				break;	
 				
 				case GLFW_MOUSE_BUTTON_RIGHT:
-					flag = Inputs::Keys::RMB;
+					keyCode = Inputs::Key::RMB;
 				break;
 	
 				case GLFW_MOUSE_BUTTON_MIDDLE:
-					flag = Inputs::Keys::MMB;
+					keyCode = Inputs::Key::MMB;
 				break;		
 
 				default:
 				break;
 			}
 		
-			if(set)	
-				thisWindowGlfw->inputs.keys |= flag;
+			if(set)
+                thisWindowGlfw->inputs.press(keyCode);	
 			else
-				thisWindowGlfw->inputs.keys &= ~flag;
+                thisWindowGlfw->inputs.release(keyCode);	
 		});
 
 	glfwSetCursorPosCallback(window,

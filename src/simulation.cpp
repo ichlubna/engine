@@ -29,20 +29,24 @@ Simulation::Simulation(GpuAPI gpuApi, WindowAPI windowApi)
 	}	
 }
 
-void Simulation::processinputs(Window::Inputs inputs)
+void Simulation::processInputs()
 {
-    if(window->inputs.pressed(Inputs::ALT, Inputs::ENTER)))
+    const Inputs& inputs = window->getInputs();
+
+    if(inputs.pressed(Inputs::Key::ESC))
+        end = true;
+    else if(inputs.pressed(Inputs::ALT, Inputs::ENTER))
         window->switchFullscreen();
+
+    if(inputs.close)
+        end = true;
 }
 
 void Simulation::run() 
 {
-	bool close = false;
-	while(!close)
+	while(!end)
 	{
-        Window::Inputs inputs = window->checkInputs();
-		close = inputs.close;
-        
+        processInputs(); 
         gpu->render();
 	}
 }

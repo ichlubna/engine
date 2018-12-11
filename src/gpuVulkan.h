@@ -10,7 +10,7 @@ class GpuVulkan : public Gpu
 	private:
         struct SwapChainFrame
         {
-            vk::UniqueImage image;
+            vk::Image image;
             vk::UniqueImageView imageView;
             vk::UniqueFramebuffer frameBuffer;
             vk::UniqueCommandBuffer commandBuffer;

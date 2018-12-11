@@ -11,7 +11,8 @@ class Simulation
 		void run();
 		Simulation(GpuAPI api = GPU_VULKAN, WindowAPI = WINDOW_GLFW);
 	private:
+        bool end{false};
 		std::unique_ptr<Window> window;
 		std::unique_ptr<Gpu> gpu;	
-        void processinputs(Window::Inputs inputs);
+        void processInputs();
 };

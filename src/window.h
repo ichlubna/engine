@@ -12,9 +12,7 @@ class Window
 			int height;
 		};
 
-		Inputs inputs;
-
-		virtual checkInputs() = 0;
+		virtual const Inputs& getInputs() = 0;
 		virtual void getVulkanSurface(void *instance, void *surface) const = 0;
 		virtual void addRequiredWindowExt(std::vector<const char*> &extensions) const = 0;
         virtual WinSize getFramebufferSize() const = 0;	
@@ -22,6 +20,7 @@ class Window
 
 		//WinSize getSize() const {return {width, height};}
 		Window(unsigned int w, unsigned int h) : width{w}, height{h} {};
+		Inputs inputs;
 	protected:
 		unsigned int width;
 		unsigned int height;

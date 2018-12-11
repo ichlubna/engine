@@ -238,12 +238,12 @@ void GpuVulkan::createSwapChain()
 		throw std::runtime_error("Failed to create swap chain.");
     device->getSwapchainImagesKHR(*swapChain, &imageCount, nullptr);
     std::vector<vk::Image> swapChainImages(imageCount);
+
 	device->getSwapchainImagesKHR(*swapChain, &imageCount, swapChainImages.data());
-   
     for(auto image : swapChainImages)
     {
         frames.push_back(std::make_unique<SwapChainFrame>());
-        frames.back()->image = vk::UniqueImage(image); 
+        frames.back()->image = image;
     }
 }
 
@@ -252,7 +252,7 @@ void GpuVulkan::createSwapChainImageViews()
     for(auto &frame : frames)
     {
         vk::ImageViewCreateInfo createInfo;
-        createInfo  .setImage(*frame->image)
+        createInfo  .setImage(frame->image)
                     .setViewType(vk::ImageViewType::e2D)
                     .setFormat(swapChainImgFormat)
                     .setComponents(vk::ComponentMapping(vk::ComponentSwizzle::eIdentity))
@@ -532,7 +532,11 @@ void GpuVulkan::render()
     device->resetFences(1, &*pipelineSync.at(processedFrame).fence);
 
     unsigned int imageID;
-    device->acquireNextImageKHR(*swapChain, std::numeric_limits<uint64_t>::max(), *pipelineSync.at(processedFrame).semaphores.imgReady, nullptr, &imageID);
+    if(device->acquireNextImageKHR(*swapChain, std::numeric_limits<uint64_t>::max(), *pipelineSync.at(processedFrame).semaphores.imgReady, nullptr, &imageID) == vk::Result::eErrorOutOfDateKHR)
+    {
+        recreateSwapChain();
+        device->resetFences(1, &*pipelineSync.at(processedFrame).fence);
+    }
     
     vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
     vk::SubmitInfo submitInfo;
@@ -562,6 +566,19 @@ void GpuVulkan::render()
 void GpuVulkan::recreateSwapChain()
 {
     device->waitIdle();
+
+/*    for (auto &frame : frames)
+    {
+        frame->frameBuffer.reset();
+        frame->commandBuffer.reset();
+        frame->imageView.reset();
+       // frame->image
+    }*/
+    frames.clear();
+    graphicsPipeline.reset();
+    pipelineLayout.reset();
+    renderPass.reset();
+    swapChain.reset();
 
 	createSwapChain();
     createSwapChainImageViews();
