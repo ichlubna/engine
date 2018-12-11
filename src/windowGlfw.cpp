@@ -147,7 +147,7 @@ WindowGlfw::WindowGlfw(unsigned int w, unsigned int h) : Window{w,h}
 		{
 			WindowGlfw *thisWindowGlfw = reinterpret_cast<WindowGlfw*>(glfwGetWindowUserPointer(window));
 			thisWindowGlfw->inputs.mouseScroll = yOffset;
-		});	
+		});
 }
 
 WindowGlfw::~WindowGlfw()

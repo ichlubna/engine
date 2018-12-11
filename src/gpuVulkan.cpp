@@ -529,13 +529,12 @@ void GpuVulkan::createPipelineSync()
 void GpuVulkan::render()
 {
     device->waitForFences(1, &*pipelineSync.at(processedFrame).fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
-    device->resetFences(1, &*pipelineSync.at(processedFrame).fence);
 
     unsigned int imageID;
     if(device->acquireNextImageKHR(*swapChain, std::numeric_limits<uint64_t>::max(), *pipelineSync.at(processedFrame).semaphores.imgReady, nullptr, &imageID) == vk::Result::eErrorOutOfDateKHR)
     {
         recreateSwapChain();
-        device->resetFences(1, &*pipelineSync.at(processedFrame).fence);
+        return;
     }
     
     vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
@@ -547,6 +546,8 @@ void GpuVulkan::render()
                 .setPCommandBuffers(&*frames[imageID]->commandBuffer)
                 .setSignalSemaphoreCount(1)
                 .setPSignalSemaphores(&*pipelineSync.at(processedFrame).semaphores.renderReady);
+
+    device->resetFences(1, &*pipelineSync.at(processedFrame).fence);
 
     if(queues.graphics.submit(1, &submitInfo, *pipelineSync.at(processedFrame).fence) != vk::Result::eSuccess)
         throw std::runtime_error("Cannot submit draw command buffer.");
@@ -565,27 +566,27 @@ void GpuVulkan::render()
 
 void GpuVulkan::recreateSwapChain()
 {
+    /* HANDLING MINIMIZATION BY STOPPING, MAYBE NOT NECESSARY
+     int width = 0, height = 0;
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(window, &width, &height);
+        glfwWaitEvents();
+    }
+    */
+
     device->waitIdle();
 
-/*    for (auto &frame : frames)
-    {
-        frame->frameBuffer.reset();
-        frame->commandBuffer.reset();
-        frame->imageView.reset();
-       // frame->image
-    }*/
     frames.clear();
     graphicsPipeline.reset();
     pipelineLayout.reset();
     renderPass.reset();
     swapChain.reset();
-
+    
 	createSwapChain();
     createSwapChainImageViews();
     createRenderPass();
     createGraphicsPipeline();
     createFramebuffers();
-    createCommandPool();
     createCommandBuffers();
 }
 
@@ -602,7 +603,6 @@ GpuVulkan::GpuVulkan(Window* w) : Gpu(w)
     createFramebuffers();
     createCommandPool();
     createCommandBuffers();
-    //recreateSwapChain();
     createPipelineSync();
 }
 
