@@ -1,6 +1,6 @@
-#include <memory>
 #include "window.h"
 #include "gpu.h"
+#include "assets.h"
 
 class Simulation
 {

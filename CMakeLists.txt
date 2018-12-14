@@ -18,6 +18,7 @@ src/simulation.cpp
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
+find_package(assimp REQUIRED)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
@@ -33,5 +34,4 @@ add_custom_target(shader    COMMAND ${GLSLANGVALIDATOR_BINARY} -V ${CMAKE_SOURCE
                             COMMAND ${GLSLANGVALIDATOR_BINARY} -V ${CMAKE_SOURCE_DIR}/src/shader/fragment.frag -o ${CMAKE_SOURCE_DIR}/precompiled/fragment.spv
 						   # DEPENDS ${GLSLANGVALIDATOR_BINARY}
     						WORKING_DIRECTORY ${CMAKE_PROJECT_DIR})
-target_link_libraries(${PROJECT_NAME} vulkan glfw glm)
-
+target_link_libraries(${PROJECT_NAME} vulkan glfw glm assimp)
