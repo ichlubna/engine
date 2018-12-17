@@ -335,6 +335,7 @@ void GpuVulkan::createRenderPass()
 
 void GpuVulkan::createGraphicsPipeline()
 {
+    //TODO split into smaller ones maybe?
     auto vertexShader = loadShader("../precompiled/vertex.spv"); 
     auto fragmentShader = loadShader("../precompiled/fragment.spv");
     vk::UniqueShaderModule vertexModule = createShaderModule(vertexShader); 
@@ -349,11 +350,19 @@ void GpuVulkan::createGraphicsPipeline()
                         .setModule(*fragmentModule)
                         .setPName("main");
 
+    vk::VertexInputBindingDescription binding;
+    binding .setBinding(0)
+            .setStride(sizeof(Assets::Vertex))
+            .setInputRate(vk::VertexInputRate::eVertex);
+
+    std::vector<vk::VertexInputAttributeDescription> attributes;
+    attributes.push_back({0, locations.position, vk::Format::eR32G32B32Sfloat, offsetof(Assets::Vertex, position)});
+
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
-    vertexInputInfo .setVertexBindingDescriptionCount(0)
-                    .setPVertexBindingDescriptions(nullptr)
-                    .setVertexAttributeDescriptionCount(0)
-                    .setPVertexAttributeDescriptions(nullptr);
+    vertexInputInfo .setVertexBindingDescriptionCount(1)
+                    .setPVertexBindingDescriptions(&binding)
+                    .setVertexAttributeDescriptionCount(attributes.size())
+                    .setPVertexAttributeDescriptions(attributes.data());
 
     vk::PipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
     inputAssemblyInfo   .setTopology(vk::PrimitiveTopology::eTriangleList)

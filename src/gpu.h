@@ -4,6 +4,7 @@
 //abstract class defining the needed GPU actions
 //can be inherited by various GPU APIs such as Vulkan, OpenGL, DirectX...
 #include "window.h"
+#include "assets.h"
 
 class Gpu
 {

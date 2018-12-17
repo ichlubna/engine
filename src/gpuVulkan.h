@@ -7,7 +7,14 @@ class GpuVulkan : public Gpu
 		void render() override;
 		GpuVulkan(Window* w);
 		~GpuVulkan();
-	private:
+	private: 
+        const struct
+        {
+            unsigned int position{0};
+            unsigned int normal{1};
+            unsigned int uv{2};
+        } locations;
+
         struct SwapChainFrame
         {
             vk::Image image;
@@ -51,7 +58,6 @@ class GpuVulkan : public Gpu
 			int present{-1};
 			int compute{-1};
 		} queueFamilyIDs;
-
 
         struct
         {
