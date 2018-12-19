@@ -3,6 +3,7 @@
 #include <assimp/postprocess.h>
 #include "assets.h"
 
+#include <iostream>
 int32_t Assets::packNormals(glm::vec3 normal) const
 {
     normal = glm::normalize(normal);
@@ -12,7 +13,7 @@ int32_t Assets::packNormals(glm::vec3 normal) const
     return (scaledNormal.x << 20) | (scaledNormal.y << 10) | scaledNormal.z;
 }
 
-std::shared_ptr<Assets::Model> Assets::loadModel(char *path)
+std::shared_ptr<Assets::Model> Assets::loadModel(const char *path)
 {
     auto model = std::make_shared<Model>();
 
@@ -20,6 +21,7 @@ std::shared_ptr<Assets::Model> Assets::loadModel(char *path)
     const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals | aiProcess_OptimizeMeshes ); 
     if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         throw std::runtime_error(importer.GetErrorString());
+    std::cerr <<importer.GetErrorString();
 
     //assuming only one mesh in file for now, do we need more?
     aiMesh *mesh = scene->mMeshes[0];

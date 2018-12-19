@@ -9,8 +9,8 @@
 class Gpu
 {
 	public:
-        //TODO multiple shaders/pipelines
 		virtual void render() = 0;
+        virtual void addModel(std::shared_ptr<Assets::Model> model) = 0;
 		Gpu(Window *w) : windowPtr{w} {};
 	protected:
 		Window *windowPtr;

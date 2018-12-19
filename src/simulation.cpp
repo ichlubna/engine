@@ -2,10 +2,8 @@
 #include "gpuVulkan.h"
 #include "windowGlfw.h"
 
-Simulation::Simulation(GpuAPI gpuApi, WindowAPI windowApi)
+Simulation::Simulation(GpuAPI gpuApi, WindowAPI windowApi) : assets{std::make_unique<Assets>()}
 {
-	//probably not needed
-	//const Window::Extensions windowExt = window->getRequiredExtensions();
 	switch(windowApi)
 	{
 		case WINDOW_GLFW:
@@ -44,6 +42,9 @@ void Simulation::processInputs()
 
 void Simulation::run() 
 {
+    auto model = assets->loadModel("../assets/geometry/box.obj");
+    gpu->addModel(model); 
+    
 	while(!end)
 	{
         processInputs(); 

@@ -5,6 +5,7 @@ class GpuVulkan : public Gpu
 {
 	public:
 		void render() override;
+        void addModel(std::shared_ptr<Assets::Model> model);
 		GpuVulkan(Window* w);
 		~GpuVulkan();
 	private: 
@@ -31,12 +32,22 @@ class GpuVulkan : public Gpu
                 vk::UniqueSemaphore renderReady;
             } semaphores;
             vk::UniqueFence fence;
+        };  
+  
+        struct Buffer
+        {
+            vk::UniqueBuffer buffer;
+            vk::UniqueDeviceMemory memory;
+            unsigned int top{0};
         };
  
         const int CONCURRENT_FRAMES_COUNT = 2;
+        const int VERTEX_BUFFER_SIZE = 100*sizeof(Assets::Vertex);
+        const int INDEX_BUFFER_SIZE = 100*sizeof(decltype(Assets::Model::indices)::value_type);
+
         unsigned int processedFrame = 0;
-		
-        vk::UniqueInstance instance;
+
+	    vk::UniqueInstance instance;
 		vk::PhysicalDevice physicalDevice;
 		vk::UniqueDevice device;
 		vk::UniqueSurfaceKHR surface;
@@ -66,6 +77,12 @@ class GpuVulkan : public Gpu
     		vk::Queue present;
         } queues;
 
+        struct
+        {
+            Buffer vertex;
+            Buffer index;
+        } buffers;
+
         std::vector<char> loadShader(const char* path);
         vk::UniqueShaderModule createShaderModule(std::vector<char> source);
 		void createInstance();
@@ -81,5 +98,10 @@ class GpuVulkan : public Gpu
         void createCommandPool();
         void createCommandBuffers();
         void createPipelineSync();
+        Buffer createBuffer(unsigned int size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
+        void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size, vk::DeviceSize srcOffset, vk::DeviceSize dstOffset);
+        void createBuffers();
 		bool isDeviceOK(const vk::PhysicalDevice &potDevice);
+        uint32_t getMemoryType(uint32_t typeFlags, vk::MemoryPropertyFlags properties);
+
 };

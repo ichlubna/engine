@@ -490,7 +490,6 @@ void GpuVulkan::createCommandBuffers()
         allocInfo   .setCommandPool(*commandPool)
                     .setLevel(vk::CommandBufferLevel::ePrimary)
                     .setCommandBufferCount(1);
-        //if(frame.commandBuffer = device->allocateCommandBuffersUnique(allocInfo))
         if(!(frame->commandBuffer = std::move(device->allocateCommandBuffersUnique(allocInfo).front())))
             throw std::runtime_error("Failed to allocate command buffers.");
         vk::CommandBufferBeginInfo bufferBeginInfo;
@@ -510,7 +509,10 @@ void GpuVulkan::createCommandBuffers()
 
         frame->commandBuffer->beginRenderPass(passBeginInfo, vk::SubpassContents::eInline);
         frame->commandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
-        frame->commandBuffer->draw(3, 1, 0, 0);
+        vk::DeviceSize offsets[] = {0};
+        frame->commandBuffer->bindVertexBuffers(0, 1, &*buffers.vertex.buffer, offsets);
+        frame->commandBuffer->bindIndexBuffer(*buffers.index.buffer, 0, vk::IndexType::eUint16);
+        frame->commandBuffer->drawIndexed(10, 1, 0, 0, 0);
         frame->commandBuffer->endRenderPass();
 
         frame->commandBuffer->end();
@@ -533,6 +535,99 @@ void GpuVulkan::createPipelineSync()
             !(sync.fence = device->createFenceUnique(fenCreateInfo)))
             throw std::runtime_error("Cannot create pipeline synchronization.");
     }
+}
+
+uint32_t GpuVulkan::getMemoryType(uint32_t typeFlag, vk::MemoryPropertyFlags properties)
+{
+    vk::PhysicalDeviceMemoryProperties memoryProps;
+    memoryProps = physicalDevice.getMemoryProperties();
+    
+    for(unsigned int i=0; i<memoryProps.memoryTypeCount; i++)
+        if((typeFlag & (1<<i)) && ((memoryProps.memoryTypes[i].propertyFlags & properties) == properties))
+            return i;
+    throw std::runtime_error("Necessary memory type not available.");
+}
+
+GpuVulkan::Buffer GpuVulkan::createBuffer(unsigned int size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties)
+{
+    Buffer buffer;
+    vk::BufferCreateInfo createInfo;
+    createInfo  .setSize(size)
+                .setUsage(usage)
+                .setSharingMode(vk::SharingMode::eExclusive);
+
+    if(!(buffer.buffer = device->createBufferUnique(createInfo)))
+        throw std::runtime_error("Cannot create vertex buffer!");
+
+    vk::MemoryRequirements requirements = device->getBufferMemoryRequirements(*buffer.buffer);
+
+    vk::MemoryAllocateInfo allocateInfo;
+    allocateInfo.setAllocationSize(requirements.size)
+                .setMemoryTypeIndex(getMemoryType(  requirements.memoryTypeBits,
+                                                    properties));
+    
+    if(!(buffer.memory = device->allocateMemoryUnique(allocateInfo)))
+        throw std::runtime_error("Cannot allocate vertex buffer memory.");
+    
+    device->bindBufferMemory(*buffer.buffer, *buffer.memory, 0);
+   
+    return buffer;
+}
+
+void GpuVulkan::createBuffers()
+{
+    buffers.vertex = createBuffer(VERTEX_BUFFER_SIZE, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal);
+    buffers.index = createBuffer(INDEX_BUFFER_SIZE, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal);
+}
+
+void GpuVulkan::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size, vk::DeviceSize srcOffset, vk::DeviceSize dstOffset)
+{
+    vk::CommandBufferAllocateInfo allocInfo;
+    allocInfo   .setLevel(vk::CommandBufferLevel::ePrimary)
+                .setCommandPool(*commandPool)
+                .setCommandBufferCount(1);
+
+    vk::UniqueCommandBuffer commandBuffer = std::move(device->allocateCommandBuffersUnique(allocInfo).front());
+    vk::CommandBufferBeginInfo beginInfo;
+    beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+    
+    commandBuffer->begin(beginInfo);
+    vk::BufferCopy copyPart;
+    copyPart.setSrcOffset(srcOffset)
+            .setDstOffset(dstOffset)
+            .setSize(size);
+    commandBuffer->copyBuffer(src, dst, 1, &copyPart);
+    commandBuffer->end();
+
+    vk::SubmitInfo submitInfo;
+    submitInfo  .setCommandBufferCount(1)
+                .setPCommandBuffers(&*commandBuffer);
+
+    queues.graphics.submit(1, &submitInfo, vk::Fence());
+    queues.graphics.waitIdle();   
+}
+
+void GpuVulkan::addModel(std::shared_ptr<Assets::Model> model)
+{
+    unsigned int size = model->vertices.size()*sizeof(Assets::Vertex);
+
+    Buffer staging = createBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+    void *memoryPtr;
+    device->mapMemory(*staging.memory, 0, VK_WHOLE_SIZE, vk::MemoryMapFlags(), &memoryPtr);
+    memcpy(memoryPtr, model->vertices.data(), size);
+    device->unmapMemory(*staging.memory);
+    
+    copyBuffer(*staging.buffer, *buffers.vertex.buffer, size, 0, buffers.vertex.top);
+    buffers.vertex.top += size;
+
+    size = model->indices.size()*sizeof(decltype(model->indices)::value_type);
+    device->mapMemory(*staging.memory, 0, VK_WHOLE_SIZE, vk::MemoryMapFlags(), &memoryPtr);
+    memcpy(memoryPtr, model->indices.data(), size);
+    device->unmapMemory(*staging.memory);
+    
+    copyBuffer(*staging.buffer, *buffers.index.buffer, size, 0, buffers.index.top);
+    buffers.index.top += size;
 }
 
 void GpuVulkan::render()
@@ -610,6 +705,7 @@ GpuVulkan::GpuVulkan(Window* w) : Gpu(w)
     createRenderPass();
     createGraphicsPipeline();
     createFramebuffers();
+    createBuffers();
     createCommandPool();
     createCommandBuffers();
     createPipelineSync();

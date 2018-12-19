@@ -1,6 +1,5 @@
 #include "window.h"
 #include "gpu.h"
-#include "assets.h"
 
 class Simulation
 {
@@ -14,5 +13,6 @@ class Simulation
         bool end{false};
 		std::unique_ptr<Window> window;
 		std::unique_ptr<Gpu> gpu;	
+		std::unique_ptr<Assets> assets;	
         void processInputs();
 };

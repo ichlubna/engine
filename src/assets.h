@@ -6,6 +6,7 @@
 class Assets
 {
 	public:
+        //TODO measure difference when Vertex size is power of 2
         struct Vertex
         {
             glm::vec3 position;
@@ -19,7 +20,7 @@ class Assets
             std::vector<uint16_t> indices;
         };
 
-    std::shared_ptr<Model> loadModel(char *path);
+    std::shared_ptr<Model> loadModel(const char *path);
 	private:
         int32_t packNormals(glm::vec3 normal) const;
         
