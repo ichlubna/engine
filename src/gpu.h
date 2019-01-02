@@ -10,6 +10,7 @@ class Gpu
 {
 	public:
 		virtual void render() = 0;
+		virtual void updateViewProjectionMatrix(glm::mat4 vpMatrix) = 0;
         virtual void addModel(std::shared_ptr<Assets::Model> model) = 0;
 		Gpu(Window *w) : windowPtr{w} {};
 	protected:

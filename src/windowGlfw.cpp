@@ -138,15 +138,14 @@ WindowGlfw::WindowGlfw(unsigned int w, unsigned int h) : Window{w,h}
 		[](GLFWwindow *window, double xPos, double yPos)
 		{
 			WindowGlfw *thisWindowGlfw = reinterpret_cast<WindowGlfw*>(glfwGetWindowUserPointer(window));
-			thisWindowGlfw->inputs.mouseX = xPos;				
-			thisWindowGlfw->inputs.mouseY = yPos;				
+			thisWindowGlfw->inputs.setMousePosition(xPos, yPos);
 		});
 	
 	glfwSetScrollCallback(window,
 		[](GLFWwindow *window, [[maybe_unused]]double xOffset, double yOffset)
 		{
 			WindowGlfw *thisWindowGlfw = reinterpret_cast<WindowGlfw*>(glfwGetWindowUserPointer(window));
-			thisWindowGlfw->inputs.mouseScroll = yOffset;
+			thisWindowGlfw->inputs.setMouseScroll(yOffset);
 		});
 }
 

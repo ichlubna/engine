@@ -4,6 +4,11 @@
 #include <fstream>
 #include "gpuVulkan.h"
 
+void GpuVulkan::updateViewProjectionMatrix(glm::mat4 vp)
+{
+    vpMatrix = vp;
+}
+
 void GpuVulkan::createInstance()
 {
 	vk::ApplicationInfo appInfo;
@@ -333,6 +338,22 @@ void GpuVulkan::createRenderPass()
         throw std::runtime_error("Cannot create render pass.");
 }       
 
+void GpuVulkan::createDescriptorSetLayout()
+{
+    vk::DescriptorSetLayoutBinding layoutBinding;
+    layoutBinding   .setBinding(bindings.viewProjectionMatrix)
+                    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                    .setDescriptorCount(1)
+                    .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+
+    vk::DescriptorSetLayoutCreateInfo createInfo;
+    createInfo  .setBindingCount(1)
+                .setPBindings(&layoutBinding);
+
+    if(!(device->createDescriptorSetLayout(createInfo)))
+        throw std::runtime_error("Cannot create descriptor set layout.");
+}
+
 void GpuVulkan::createGraphicsPipeline()
 {
     //TODO split into smaller ones maybe?
@@ -424,8 +445,8 @@ void GpuVulkan::createGraphicsPipeline()
                     .setBlendConstants({0.0f,0.0f,0.0f,0.0f});
 
     vk::PipelineLayoutCreateInfo layoutInfo;
-    layoutInfo  .setSetLayoutCount(0)
-                .setPSetLayouts(nullptr)
+    layoutInfo  .setSetLayoutCount(1)
+                .setPSetLayouts(&*descriptorSetLayout)
                 .setPushConstantRangeCount(0)
                 .setPPushConstantRanges(nullptr);
 
@@ -578,6 +599,20 @@ void GpuVulkan::createBuffers()
 {
     buffers.vertex = createBuffer(VERTEX_BUFFER_SIZE, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal);
     buffers.index = createBuffer(INDEX_BUFFER_SIZE, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+    for(auto &frame : frames)
+    {
+        frame->uniformVpMatrix = createBuffer(VP_BUFFER_SIZE, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+    }
+}
+
+void GpuVulkan::updateUniforms(unsigned int imageID)
+{
+    void *data;
+    device->mapMemory(*(frames[imageID]->uniformVpMatrix.memory), 0, VP_BUFFER_SIZE, vk::MemoryMapFlags(), &data);
+    memcpy(data, &vpMatrix, VP_BUFFER_SIZE);
+    device->unmapMemory(*(frames[imageID]->uniformVpMatrix.memory)); 
+     
 }
 
 void GpuVulkan::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size, vk::DeviceSize srcOffset, vk::DeviceSize dstOffset)
@@ -641,6 +676,8 @@ void GpuVulkan::render()
         return;
     }
     
+    updateUniforms(imageID);
+
     vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
     vk::SubmitInfo submitInfo;
     submitInfo  .setWaitSemaphoreCount(1)
@@ -703,6 +740,7 @@ GpuVulkan::GpuVulkan(Window* w) : Gpu(w)
 	createSwapChain();
     createSwapChainImageViews();
     createRenderPass();
+    createDescriptorSetLayout();
     createGraphicsPipeline();
     createFramebuffers();
     createBuffers();

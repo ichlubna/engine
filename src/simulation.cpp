@@ -1,3 +1,5 @@
+#include <chrono>
+#include <thread>
 #include "simulation.h"
 #include "gpuVulkan.h"
 #include "windowGlfw.h"
@@ -40,15 +42,48 @@ void Simulation::processInputs()
         end = true;
 }
 
+void Simulation::step()
+{
+    processInputs();
+    //physics(stepSize)
+}
+
 void Simulation::run() 
 {
     auto model = assets->loadModel("../assets/geometry/box.obj");
     gpu->addModel(model); 
-    
-	while(!end)
-	{
-        processInputs(); 
-        gpu->render();
-	}
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> remainingTime{0.0};
+    std::chrono::duration<double> stepTime{stepSize};
+   
+    if(fixedFPS)
+        while(!end)
+        {        
+            auto currentTime = std::chrono::high_resolution_clock::now();
+            step(); 
+            gpu->render();
+            auto endTime = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> frameTime = endTime - currentTime;
+            if(frameTime < stepTime)
+                std::this_thread::sleep_for(stepTime-frameTime); 
+        }
+    else 
+        while(!end)
+        {
+            auto newTime = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> frameTime = newTime - currentTime;
+            currentTime = newTime;
+            remainingTime += frameTime;
+
+            while (remainingTime >= stepTime)
+            {   
+                step(); 
+                remainingTime -= stepTime;
+            }
+            
+            gpu->updateViewProjectionMatrix(camera->getViewProjectionMatrix());
+            gpu->render();
+        }
 }
 

@@ -5,7 +5,8 @@ class GpuVulkan : public Gpu
 {
 	public:
 		void render() override;
-        void addModel(std::shared_ptr<Assets::Model> model);
+		void updateViewProjectionMatrix(glm::mat4 view) override;
+        void addModel(std::shared_ptr<Assets::Model> model) override;
 		GpuVulkan(Window* w);
 		~GpuVulkan();
 	private: 
@@ -16,14 +17,11 @@ class GpuVulkan : public Gpu
             unsigned int uv{2};
         } locations;
 
-        struct SwapChainFrame
+        const struct
         {
-            vk::Image image;
-            vk::UniqueImageView imageView;
-            vk::UniqueFramebuffer frameBuffer;
-            vk::UniqueCommandBuffer commandBuffer;
-        };
-        
+            unsigned int viewProjectionMatrix{0};
+        } bindings;
+ 
         struct PipelineSync
         {
             struct
@@ -40,12 +38,25 @@ class GpuVulkan : public Gpu
             vk::UniqueDeviceMemory memory;
             unsigned int top{0};
         };
+        
+        struct SwapChainFrame
+        {
+            vk::Image image;
+            vk::UniqueImageView imageView;
+            vk::UniqueFramebuffer frameBuffer;
+            vk::UniqueCommandBuffer commandBuffer;
+            Buffer uniformVpMatrix;
+        };
  
         const int CONCURRENT_FRAMES_COUNT = 2;
+        //TODO 100???
         const int VERTEX_BUFFER_SIZE = 100*sizeof(Assets::Vertex);
         const int INDEX_BUFFER_SIZE = 100*sizeof(decltype(Assets::Model::indices)::value_type);
+        const int VP_BUFFER_SIZE = sizeof(glm::mat4);
 
         unsigned int processedFrame = 0;
+
+        glm::mat4 vpMatrix;
 
 	    vk::UniqueInstance instance;
 		vk::PhysicalDevice physicalDevice;
@@ -58,6 +69,7 @@ class GpuVulkan : public Gpu
         vk::UniquePipelineLayout pipelineLayout;
         vk::UniquePipeline graphicsPipeline;
         vk::UniqueCommandPool commandPool;
+        vk::UniqueDescriptorSetLayout descriptorSetLayout;
 
         std::vector<std::unique_ptr<SwapChainFrame>> frames;
 		std::vector<const char*> validationLayers;
@@ -101,6 +113,8 @@ class GpuVulkan : public Gpu
         Buffer createBuffer(unsigned int size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
         void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size, vk::DeviceSize srcOffset, vk::DeviceSize dstOffset);
         void createBuffers();
+        void updateUniforms(unsigned int imageID);
+        void createDescriptorSetLayout();
 		bool isDeviceOK(const vk::PhysicalDevice &potDevice);
         uint32_t getMemoryType(uint32_t typeFlags, vk::MemoryPropertyFlags properties);
 
