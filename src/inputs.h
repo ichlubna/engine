@@ -10,40 +10,24 @@ class Inputs
             ALT = 256, ENTER = 512
         };
 
-        struct mouseStatus
+        struct mousePosition
         {
-            double x, y, scroll; 
+            double x, y; 
         };
 
-        double mouseSensitivity{0.1};      
+        //TODO double is probably useless overkill
  
         //signal to close app eg. clicking the cross icon
         bool close {false};
 
-        mouseStatus getMouseStatus()
-        { return {mouseX, mouseY, mouseScroll};  }
+        mousePosition getMousePosition() const;
+        double getMouseScroll() const;
 
-        void setMousePosition(double x, double y)
-        {
-            mouseX = mouseSensitivity * x; 
-            mouseY = mouseSensitivity * y; 
-        }
-
-        void setMouseScroll(double s)
-        {
-            mouseScroll = s;
-        }
-
-        void press(Key key)
-        {
-            keys |= key;
-        }
-
-        void release(Key key)
-        {
-            keys &= ~key;
-        }
-
+        void setMousePosition(double x, double y);
+        void setMouseScroll(double s);
+        void press(Key key);
+        void release(Key key);
+        
         template <typename... Args>
         bool pressed(Args... args) const
         {

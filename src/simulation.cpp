@@ -3,8 +3,8 @@
 #include "simulation.h"
 #include "gpuVulkan.h"
 #include "windowGlfw.h"
-
-Simulation::Simulation(GpuAPI gpuApi, WindowAPI windowApi) : assets{std::make_unique<Assets>()}
+#include<iostream>
+Simulation::Simulation(GpuAPI gpuApi, WindowAPI windowApi) : assets{std::make_unique<Assets>()}, camera{std::make_unique<Camera>()}
 {
 	switch(windowApi)
 	{
@@ -28,12 +28,29 @@ Simulation::Simulation(GpuAPI gpuApi, WindowAPI windowApi) : assets{std::make_un
 		break;
 	}	
 }
-
+double previousX = 0.0, previousY = 0.0;
 void Simulation::processInputs()
 {
     const Inputs& inputs = window->getInputs();
 
-    if(inputs.pressed(Inputs::Key::ESC))
+    //FPS Camera
+    float mouseSensitivity = 0.0001;
+    Inputs::mousePosition mp = inputs.getMousePosition();
+    double relativeX = mp.x - previousX, relativeY = mp.y - previousY;
+    previousX = mp.x, previousY = mp.y;
+    camera->turn(relativeY*mouseSensitivity, relativeX*mouseSensitivity);
+    relativeX = relativeY = 0.0;
+    float cameraSpeed = 0.1;
+    if(inputs.pressed(Inputs::W))
+        camera->move(Camera::Direction::FRONT, cameraSpeed); 
+    else if(inputs.pressed(Inputs::S))
+        camera->move(Camera::Direction::BACK, cameraSpeed); 
+    else if(inputs.pressed(Inputs::A))
+        camera->move(Camera::Direction::LEFT, cameraSpeed);
+    else if(inputs.pressed(Inputs::D))
+        camera->move(Camera::Direction::RIGHT, cameraSpeed);
+ 
+    else if(inputs.pressed(Inputs::Key::ESC))
         end = true;
     else if(inputs.pressed(Inputs::ALT, Inputs::ENTER))
         window->switchFullscreen();

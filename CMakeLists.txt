@@ -13,6 +13,8 @@ src/main.cpp
 src/gpuVulkan.cpp
 src/windowGlfw.cpp
 src/simulation.cpp
+src/camera.cpp
+src/inputs.cpp
 )
 
 find_package(Vulkan REQUIRED)

@@ -156,7 +156,12 @@ void GpuVulkan::createDevice()
 
 void GpuVulkan::createSurface()
 {
-	windowPtr->getVulkanSurface(&instance.get(), &*surface);
+    vk::SurfaceKHR tmpSurface;
+	windowPtr->getVulkanSurface(&instance.get(), &tmpSurface);
+    
+    vk::ObjectDestroy<vk::Instance, vk::DispatchLoaderStatic> surfaceDeleter(*instance);
+    surface = vk::UniqueSurfaceKHR(tmpSurface, surfaceDeleter);  
+
 	if(!physicalDevice.getSurfaceSupportKHR(queueFamilyIDs.graphics, *surface))
 		throw std::runtime_error("Chosen graphics queue doesn't support presentation.");
 
@@ -350,7 +355,7 @@ void GpuVulkan::createDescriptorSetLayout()
     createInfo  .setBindingCount(1)
                 .setPBindings(&layoutBinding);
 
-    if(!(device->createDescriptorSetLayout(createInfo)))
+    if(!(descriptorSetLayout = device->createDescriptorSetLayoutUnique(createInfo)))
         throw std::runtime_error("Cannot create descriptor set layout.");
 }
 
@@ -533,6 +538,7 @@ void GpuVulkan::createCommandBuffers()
         vk::DeviceSize offsets[] = {0};
         frame->commandBuffer->bindVertexBuffers(0, 1, &*buffers.vertex.buffer, offsets);
         frame->commandBuffer->bindIndexBuffer(*buffers.index.buffer, 0, vk::IndexType::eUint16);
+        frame->commandBuffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pipelineLayout, 0, 1, &*frame->descriptorSet, 0, nullptr);
         frame->commandBuffer->drawIndexed(10, 1, 0, 0, 0);
         frame->commandBuffer->endRenderPass();
 
@@ -613,6 +619,49 @@ void GpuVulkan::updateUniforms(unsigned int imageID)
     memcpy(data, &vpMatrix, VP_BUFFER_SIZE);
     device->unmapMemory(*(frames[imageID]->uniformVpMatrix.memory)); 
      
+}
+
+void GpuVulkan::createDescriptorPool()
+{
+    vk::DescriptorPoolSize poolSize;
+    poolSize.setDescriptorCount(frames.size())
+            .setType(vk::DescriptorType::eUniformBuffer);  
+
+    vk::DescriptorPoolCreateInfo createInfo;
+    createInfo  .setPoolSizeCount(1)
+                .setMaxSets(frames.size())
+                .setPPoolSizes(&poolSize);
+    if(!(descriptorPool = device->createDescriptorPoolUnique(createInfo)))
+        throw std::runtime_error("Cannot create a descriptor pool.");
+}
+
+void GpuVulkan::createDescriptorSets()
+{
+    for(auto &frame : frames)
+    {
+        vk::DescriptorSetAllocateInfo allocInfo;
+        allocInfo   .setDescriptorPool(*descriptorPool)
+                    .setDescriptorSetCount(1)
+                    .setPSetLayouts(&*descriptorSetLayout);
+        
+        frame->descriptorSet = std::move(device->allocateDescriptorSetsUnique(allocInfo).front());
+        
+        vk::DescriptorBufferInfo bufferInfo;
+        bufferInfo  .setBuffer(*frame->uniformVpMatrix.buffer)
+                    .setOffset(0)
+                    .setRange(VP_BUFFER_SIZE);
+
+        vk::WriteDescriptorSet writeSet;
+        writeSet.setDstSet(*frame->descriptorSet)
+                .setDstBinding(bindings.viewProjectionMatrix)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(1)
+                .setPBufferInfo(&bufferInfo);
+
+       device->updateDescriptorSets(1, &writeSet, 0, nullptr);
+            
+    }
 }
 
 void GpuVulkan::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size, vk::DeviceSize srcOffset, vk::DeviceSize dstOffset)
@@ -744,6 +793,8 @@ GpuVulkan::GpuVulkan(Window* w) : Gpu(w)
     createGraphicsPipeline();
     createFramebuffers();
     createBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
     createCommandPool();
     createCommandBuffers();
     createPipelineSync();

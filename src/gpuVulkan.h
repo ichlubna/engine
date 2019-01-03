@@ -46,6 +46,7 @@ class GpuVulkan : public Gpu
             vk::UniqueFramebuffer frameBuffer;
             vk::UniqueCommandBuffer commandBuffer;
             Buffer uniformVpMatrix;
+            vk::UniqueDescriptorSet descriptorSet;
         };
  
         const int CONCURRENT_FRAMES_COUNT = 2;
@@ -70,6 +71,7 @@ class GpuVulkan : public Gpu
         vk::UniquePipeline graphicsPipeline;
         vk::UniqueCommandPool commandPool;
         vk::UniqueDescriptorSetLayout descriptorSetLayout;
+        vk::UniqueDescriptorPool descriptorPool;
 
         std::vector<std::unique_ptr<SwapChainFrame>> frames;
 		std::vector<const char*> validationLayers;
@@ -115,6 +117,8 @@ class GpuVulkan : public Gpu
         void createBuffers();
         void updateUniforms(unsigned int imageID);
         void createDescriptorSetLayout();
+        void createDescriptorPool();
+        void createDescriptorSets();
 		bool isDeviceOK(const vk::PhysicalDevice &potDevice);
         uint32_t getMemoryType(uint32_t typeFlags, vk::MemoryPropertyFlags properties);
 
