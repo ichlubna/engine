@@ -539,7 +539,7 @@ void GpuVulkan::createCommandBuffers()
         frame->commandBuffer->bindVertexBuffers(0, 1, &*buffers.vertex.buffer, offsets);
         frame->commandBuffer->bindIndexBuffer(*buffers.index.buffer, 0, vk::IndexType::eUint16);
         frame->commandBuffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pipelineLayout, 0, 1, &*frame->descriptorSet, 0, nullptr);
-        frame->commandBuffer->drawIndexed(10, 1, 0, 0, 0);
+        frame->commandBuffer->drawIndexed(100, 1, 0, 0, 0);
         frame->commandBuffer->endRenderPass();
 
         frame->commandBuffer->end();

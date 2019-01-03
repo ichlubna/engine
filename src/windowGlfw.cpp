@@ -52,14 +52,12 @@ WindowGlfw::WindowGlfw(unsigned int w, unsigned int h) : Window{w,h}
 		throw std::runtime_error("Cannot create window (GLFW).");
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED | GLFW_CURSOR_HIDDEN);
 
-
 	glfwSetWindowUserPointer(window, this);
 
 	glfwSetKeyCallback(window, 
 		[]([[maybe_unused]]GLFWwindow *window, int key, [[maybe_unused]]int scancode, int action, [[maybe_unused]]int mods)
 		{
 			WindowGlfw *thisWindowGlfw = reinterpret_cast<WindowGlfw*>(glfwGetWindowUserPointer(window));
-			bool set = (action == GLFW_PRESS);
 			auto keyCode = Inputs::Key::ENTER;	
 
 			switch(key)
@@ -97,17 +95,16 @@ WindowGlfw::WindowGlfw(unsigned int w, unsigned int h) : Window{w,h}
 				break;
 			}
 		
-			if(set)	
-				thisWindowGlfw->inputs.press(keyCode);
-			else
+			if(action == GLFW_RELEASE)	
 				thisWindowGlfw->inputs.release(keyCode);
+			else
+				thisWindowGlfw->inputs.press(keyCode);
 		});
 	
 	glfwSetMouseButtonCallback(window, 
 		[]([[maybe_unused]]GLFWwindow *window, int button, int action, [[maybe_unused]]int mods)
 		{
 			WindowGlfw *thisWindowGlfw = reinterpret_cast<WindowGlfw*>(glfwGetWindowUserPointer(window));
-			bool set = (action == GLFW_PRESS);
 			auto keyCode = Inputs::Key::ENTER;	
 
 			switch(button)
@@ -128,9 +125,9 @@ WindowGlfw::WindowGlfw(unsigned int w, unsigned int h) : Window{w,h}
 				break;
 			}
 		
-			if(set)
+			if(action == GLFW_PRESS)
                 thisWindowGlfw->inputs.press(keyCode);	
-			else
+			else if(action == GLFW_RELEASE)
                 thisWindowGlfw->inputs.release(keyCode);	
 		});
 

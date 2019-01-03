@@ -34,7 +34,7 @@ void Simulation::processInputs()
     const Inputs& inputs = window->getInputs();
 
     //FPS Camera
-    float mouseSensitivity = 0.0001;
+    float mouseSensitivity = 0.001;
     Inputs::mousePosition mp = inputs.getMousePosition();
     double relativeX = mp.x - previousX, relativeY = mp.y - previousY;
     previousX = mp.x, previousY = mp.y;
@@ -43,16 +43,16 @@ void Simulation::processInputs()
     float cameraSpeed = 0.1;
     if(inputs.pressed(Inputs::W))
         camera->move(Camera::Direction::FRONT, cameraSpeed); 
-    else if(inputs.pressed(Inputs::S))
+    if(inputs.pressed(Inputs::S))
         camera->move(Camera::Direction::BACK, cameraSpeed); 
-    else if(inputs.pressed(Inputs::A))
+    if(inputs.pressed(Inputs::A))
         camera->move(Camera::Direction::LEFT, cameraSpeed);
-    else if(inputs.pressed(Inputs::D))
+    if(inputs.pressed(Inputs::D))
         camera->move(Camera::Direction::RIGHT, cameraSpeed);
  
-    else if(inputs.pressed(Inputs::Key::ESC))
+    if(inputs.pressed(Inputs::Key::ESC))
         end = true;
-    else if(inputs.pressed(Inputs::ALT, Inputs::ENTER))
+    if(inputs.pressed(Inputs::ALT, Inputs::ENTER))
         window->switchFullscreen();
 
     if(inputs.close)
@@ -67,7 +67,7 @@ void Simulation::step()
 
 void Simulation::run() 
 {
-    auto model = assets->loadModel("../assets/geometry/box.obj");
+    auto model = assets->loadModel("../assets/geometry/boxREAL.obj");
     gpu->addModel(model); 
 
     auto currentTime = std::chrono::high_resolution_clock::now();
