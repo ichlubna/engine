@@ -12,7 +12,7 @@ class Simulation
 		Simulation(GpuAPI api = GPU_VULKAN, WindowAPI = WINDOW_GLFW);
 	private:
         //the interval of one simulation step in seconds
-        const double stepSize{0.01};
+        constexpr double stepSize{0.01};
         //if enabled, one frame takes the stepSize time, else the fps is unbound
         //TODO test if physics works the same on both
         bool fixedFPS{false}; 
