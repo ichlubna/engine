@@ -13,7 +13,7 @@ int32_t Assets::packNormals(glm::vec3 normal) const
     return (scaledNormal.x << 20) | (scaledNormal.y << 10) | scaledNormal.z;
 }
 
-std::shared_ptr<Assets::Model> Assets::loadModel(const char *path)
+std::shared_ptr<Assets::Model> [[nodiscard]] Assets::loadModel(const char *path)
 {
     auto model = std::make_shared<Model>();
 
