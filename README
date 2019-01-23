@@ -5,3 +5,8 @@ make shader
 
 TODO
 C++20 contracts when possible
+
+EXTENSIONS TODO
+RTX Raytracing
+Mesh shader
+Deferred shading
