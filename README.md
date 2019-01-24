@@ -1,14 +1,14 @@
 # Build instructions
-mkdir build
-cd build
-cmake ..
-make
-make shader
+1. mkdir build
+2. cd build
+3. cmake ..
+4. make
+5. make shader
 
 # TODO
-C++20 contracts when possible
+* C++20 contracts when possible
 
 ## SPECIAL EXTENSIONS
-RTX Raytracing
-Mesh shader
-Deferred shading
+* RTX Raytracing
+* Mesh shader
+* Deferred shading
