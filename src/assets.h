@@ -6,7 +6,7 @@
 class Assets
 {
 	public:
-        //TODO measure difference when Vertex size is power of 2
+        //TODO measure difference in GPU performance when Vertex size is power of 2
         struct Vertex
         {
             glm::vec3 position;
@@ -19,8 +19,18 @@ class Assets
             std::vector<Vertex> vertices;
             std::vector<uint16_t> indices;
         };
+        
+        struct Texture
+        {
+            unsigned int width;
+            unsigned int height;
+            static const unsigned int BYTES_PER_PIXEL = 4;
+            //RGBA 8 bit values
+            std::vector<char> pixels;
+        };
 
-    std::shared_ptr<Model> loadModel(const char *path);
+    [[nodiscard]] std::shared_ptr<Model> loadModel(const char *path) const;
+    [[nodiscard]] std::shared_ptr<Texture> loadTexture(const char *path) const;
 	private:
         int32_t packNormals(glm::vec3 normal) const;
         

@@ -4,6 +4,12 @@
 #include <fstream>
 #include "gpuVulkan.h"
 
+#ifndef NDEBUG
+constexpr bool DEBUG = true;
+#else
+constexpr bool DEBUG = false;
+#endif
+
 void GpuVulkan::updateViewProjectionMatrix(glm::mat4 vp)
 {
     vpMatrix = vp;
@@ -21,26 +27,27 @@ void GpuVulkan::createInstance()
 	std::vector<const char*> extensions = {"VK_KHR_surface"};
 
 	//validation layers
-#ifndef NDEBUG
-	validationLayers.push_back("VK_LAYER_LUNARG_standard_validation");
-	extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-    extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+    if constexpr (DEBUG)
+    {
+        validationLayers.push_back("VK_LAYER_LUNARG_standard_validation");
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 
-	unsigned int layerCount;
-	vk::enumerateInstanceLayerProperties(&layerCount, nullptr);
-	std::vector<vk::LayerProperties> availableLayers(layerCount);
-	vk::enumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-	bool enableValidation = true;
-	for(const char* layer : validationLayers)
-		if(!std::any_of(availableLayers.begin(), availableLayers.end(), 
-			[layer](const vk::LayerProperties& avLayer) {return (strcmp(avLayer.layerName,  layer) == 0);}))
-		{
-			enableValidation=false;
-			break;
-		}
-	if(!enableValidation)
-		throw std::runtime_error("Validation layers not available in debug build.");
-#endif
+        unsigned int layerCount;
+        vk::enumerateInstanceLayerProperties(&layerCount, nullptr);
+        std::vector<vk::LayerProperties> availableLayers(layerCount);
+        vk::enumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+        bool enableValidation = true;
+        for(const char* layer : validationLayers)
+            if(!std::any_of(availableLayers.begin(), availableLayers.end(), 
+                [layer](const vk::LayerProperties& avLayer) {return (strcmp(avLayer.layerName,  layer) == 0);}))
+            {
+                enableValidation=false;
+                break;
+            }
+        if(!enableValidation)
+            throw std::runtime_error("Validation layers not available in debug build.");
+    }
 
 	windowPtr->addRequiredWindowExt(extensions);
 	

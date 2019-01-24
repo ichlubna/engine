@@ -10,14 +10,14 @@ class GpuVulkan : public Gpu
 		GpuVulkan(Window* w);
 		~GpuVulkan();
 	private: 
-        constexpr struct
+        const struct
         {
             unsigned int position{0};
             unsigned int normal{1};
             unsigned int uv{2};
         } locations;
 
-        constexpr struct
+        const struct
         {
             unsigned int viewProjectionMatrix{0};
         } bindings;
@@ -49,11 +49,11 @@ class GpuVulkan : public Gpu
             vk::UniqueDescriptorSet descriptorSet;
         };
  
-        constexpr int CONCURRENT_FRAMES_COUNT = 2;
+        const int CONCURRENT_FRAMES_COUNT = 2;
         //TODO 100???
-        constexpr int VERTEX_BUFFER_SIZE = 100*sizeof(Assets::Vertex);
-        constexpr int INDEX_BUFFER_SIZE = 100*sizeof(decltype(Assets::Model::indices)::value_type);
-        constexpr int VP_BUFFER_SIZE = sizeof(glm::mat4);
+        const int VERTEX_BUFFER_SIZE = 100*sizeof(Assets::Vertex);
+        const int INDEX_BUFFER_SIZE = 100*sizeof(decltype(Assets::Model::indices)::value_type);
+        const int VP_BUFFER_SIZE = sizeof(glm::mat4);
 
         unsigned int processedFrame = 0;
 

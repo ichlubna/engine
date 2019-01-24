@@ -1,6 +1,8 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <FreeImagePlus.h> 
+#include <string.h>
 #include "assets.h"
 
 #include <iostream>
@@ -13,7 +15,7 @@ int32_t Assets::packNormals(glm::vec3 normal) const
     return (scaledNormal.x << 20) | (scaledNormal.y << 10) | scaledNormal.z;
 }
 
-std::shared_ptr<Assets::Model> [[nodiscard]] Assets::loadModel(const char *path)
+std::shared_ptr<Assets::Model> Assets::loadModel(const char *path) const
 {
     auto model = std::make_shared<Model>();
 
@@ -46,4 +48,24 @@ std::shared_ptr<Assets::Model> [[nodiscard]] Assets::loadModel(const char *path)
     }
  
     return model;
+}
+
+std::shared_ptr<Assets::Texture> Assets::loadTexture(const char *path) const
+{
+    auto texture = std::make_shared<Texture>();
+
+    fipImage image;
+    if(!image.load(path))
+       throw std::runtime_error("Cannot load texture:" + std::string(path)); 
+    if (!image.convertTo32Bits())
+       throw std::runtime_error("Cannot convert (to 32 bits) texture:" + std::string(path)); 
+
+    texture->width = image.getWidth();
+    texture->height = image.getHeight();
+    unsigned int size = texture->width*texture->height;
+    texture->pixels.reserve(size*Texture::BYTES_PER_PIXEL);
+
+    memcpy(texture->pixels.data(), image.accessPixels(), size);
+
+    return texture;
 }
