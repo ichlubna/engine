@@ -8,7 +8,7 @@
 # TODO
 * C++20 contracts when possible
 
-## SPECIAL EXTENSIONS
+#### SPECIAL EXTENSIONS
 * RTX Raytracing
 * Mesh shader
 * Deferred shading
