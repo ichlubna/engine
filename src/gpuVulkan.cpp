@@ -721,6 +721,47 @@ void GpuVulkan::addModel(std::shared_ptr<Assets::Model> model)
     buffers.index.top += size;
 }
 
+GpuVulkan::Image GpuVulkan::createImage(unsigned int width, unsigned int height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlagBits properties)
+{
+    Image image;
+
+    vk::ImageCreateInfo createInfo;
+    createInfo  .setImageType(vk::ImageType::e2D) 
+                .setExtent(vk::Extent3D(width,
+                                        height,
+                                        1))
+                .setMipLevels(1)
+                .setArrayLayers(1)
+                .setFormat(format)
+                .setTiling(tiling)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setUsage(usage)
+                .setSharingMode(vk::SharingMode::eExclusive)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setFlags(vk::ImageCreateFlagBits());
+
+    if(!(device->createImage(createInfo, nullptr, image.textureImage)))
+        throw std::runtime_error("Cannot create image.");
+
+The image is created using vkCreateImage, which doesn't have an
+
+    return image;
+}
+
+void GpuVulkan::addTexture(std::shared_ptr<Assets::Texture> texture)
+{
+    unsigned int size = texture->width*texture->height*texture->BYTES_PER_PIXEL;
+    
+    Buffer stagingBuffer = createBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+    void *data;
+    device->mapMemory(*stagingBuffer.memory, 0, size, vk::MemoryMapFlags(), &data);
+    memcpy(data, texture->pixels.data(), size);
+    device->unmapMemory(*stagingBuffer.memory); 
+   
+    Image image = createImage(texture->width, texture->height, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal);
+    
+}
+
 void GpuVulkan::render()
 {
     device->waitForFences(1, &*pipelineSync.at(processedFrame).fence, VK_TRUE, std::numeric_limits<uint64_t>::max());

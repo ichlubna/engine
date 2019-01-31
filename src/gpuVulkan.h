@@ -7,6 +7,7 @@ class GpuVulkan : public Gpu
 		void render() override;
 		void updateViewProjectionMatrix(glm::mat4 view) override;
         void addModel(std::shared_ptr<Assets::Model> model) override;
+        void addTexture(std::shared_ptr<Assets::Texture> texture) override;
 		GpuVulkan(Window* w);
 		~GpuVulkan();
 	private: 
@@ -37,6 +38,12 @@ class GpuVulkan : public Gpu
             vk::UniqueBuffer buffer;
             vk::UniqueDeviceMemory memory;
             unsigned int top{0};
+        };
+
+        struct Image
+        {
+            vk::UniqueImage textureImage;
+            vk::UniqueDeviceMemory textureImageMemory;
         };
         
         struct SwapChainFrame
@@ -113,6 +120,7 @@ class GpuVulkan : public Gpu
         void createCommandBuffers();
         void createPipelineSync();
         Buffer createBuffer(unsigned int size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
+        Image createImage(unsigned int width, unsigned int height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlagBits properties);
         void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size, vk::DeviceSize srcOffset, vk::DeviceSize dstOffset);
         void createBuffers();
         void updateUniforms(unsigned int imageID);

@@ -68,7 +68,10 @@ void Simulation::step()
 void Simulation::run() 
 {
     auto model = assets->loadModel("../assets/geometry/boxREAL.obj");
+    auto texture = assets->loadTexture("../assets/textures/default.jpg");
     gpu->addModel(model); 
+    gpu->addTexture(texture); 
+
 
     auto currentTime = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> remainingTime{0.0};
