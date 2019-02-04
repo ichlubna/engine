@@ -743,7 +743,18 @@ GpuVulkan::Image GpuVulkan::createImage(unsigned int width, unsigned int height,
     if(!(device->createImage(createInfo, nullptr, image.textureImage)))
         throw std::runtime_error("Cannot create image.");
 
-The image is created using vkCreateImage, which doesn't have an
+    vk::MemoryRequirements requirements;
+    device->getImageMemoryRequirements(*image.textureImage, &requirements);
+
+    vk::MemoryAllocateInfo allocInfo;
+    allocInfo   .setAllocationSize(requirements.size)
+                .setMemoryTypeIndex(getMemoryType(requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
+    
+    if(!(image.textureImageMemory = device->allocateMemoryUnique(allocInfo)))
+        throw std::runtime_error("Cannot allocate image memory.");
+
+    device->bindImageMemory(*image.textureImage, *image.textureImageMemory, 0);
+
 
     return image;
 }
