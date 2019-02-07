@@ -7,6 +7,7 @@
 
 # TODO
 * C++20 contracts when possible
+* Library form CMake config
 
 #### SPECIAL EXTENSIONS
 * RTX Raytracing
