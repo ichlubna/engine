@@ -144,6 +144,8 @@ void GpuVulkan::createDevice()
 	queueCreateInfos[1].pQueuePriorities = &computeQueuePriority;
 	
 	vk::PhysicalDeviceFeatures deviceFeatures = {};
+    deviceFeatures.samplerAnisotropy = true;
+    //TODO check if gpu supports
 
 	const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	vk::DeviceCreateInfo createInfo;
@@ -267,21 +269,7 @@ void GpuVulkan::createSwapChain()
 void GpuVulkan::createSwapChainImageViews()
 {
     for(auto &frame : frames)
-    {
-        vk::ImageViewCreateInfo createInfo;
-        createInfo  .setImage(frame->image)
-                    .setViewType(vk::ImageViewType::e2D)
-                    .setFormat(swapChainImgFormat)
-                    .setComponents(vk::ComponentMapping(vk::ComponentSwizzle::eIdentity))
-                    .setSubresourceRange(vk::ImageSubresourceRange().setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                                                    .setBaseMipLevel(0)
-                                                                    .setLevelCount(1)
-                                                                    .setBaseArrayLayer(0)
-                                                                    .setLayerCount(1));
-
-        if(!(frame->imageView = device->createImageViewUnique(createInfo, nullptr)))
-            throw std::runtime_error("Cannot create a swap chain image view.");
-    }
+        frame->imageView = createImageView(frame->image, swapChainImgFormat);
 }
 
 std::vector<char> GpuVulkan::loadShader(const char *path)
@@ -671,7 +659,7 @@ void GpuVulkan::createDescriptorSets()
     }
 }
 
-void GpuVulkan::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size, vk::DeviceSize srcOffset, vk::DeviceSize dstOffset)
+vk::UniqueCommandBuffer GpuVulkan::oneTimeCommandsStart()
 {
     vk::CommandBufferAllocateInfo allocInfo;
     allocInfo   .setLevel(vk::CommandBufferLevel::ePrimary)
@@ -683,19 +671,33 @@ void GpuVulkan::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size, 
     beginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
     
     commandBuffer->begin(beginInfo);
+
+    return commandBuffer;
+}
+
+void GpuVulkan::oneTimeCommandsEnd(vk::CommandBuffer commandBuffer)
+{ 
+    commandBuffer.end();
+
+    vk::SubmitInfo submitInfo;
+    submitInfo  .setCommandBufferCount(1)
+                .setPCommandBuffers(&commandBuffer);
+
+    queues.graphics.submit(1, &submitInfo, vk::Fence());
+    queues.graphics.waitIdle();   
+}
+
+void GpuVulkan::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size, vk::DeviceSize srcOffset, vk::DeviceSize dstOffset)
+{
+    auto commandBuffer = oneTimeCommandsStart();
+
     vk::BufferCopy copyPart;
     copyPart.setSrcOffset(srcOffset)
             .setDstOffset(dstOffset)
             .setSize(size);
     commandBuffer->copyBuffer(src, dst, 1, &copyPart);
-    commandBuffer->end();
 
-    vk::SubmitInfo submitInfo;
-    submitInfo  .setCommandBufferCount(1)
-                .setPCommandBuffers(&*commandBuffer);
-
-    queues.graphics.submit(1, &submitInfo, vk::Fence());
-    queues.graphics.waitIdle();   
+    oneTimeCommandsEnd(*commandBuffer);
 }
 
 void GpuVulkan::addModel(std::shared_ptr<Assets::Model> model)
@@ -740,7 +742,7 @@ GpuVulkan::Image GpuVulkan::createImage(unsigned int width, unsigned int height,
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setFlags(vk::ImageCreateFlagBits());
 
-    if(!(device->createImage(createInfo, nullptr, image.textureImage)))
+    if(!(image.textureImage = device->createImageUnique(createInfo)))
         throw std::runtime_error("Cannot create image.");
 
     vk::MemoryRequirements requirements;
@@ -755,8 +757,82 @@ GpuVulkan::Image GpuVulkan::createImage(unsigned int width, unsigned int height,
 
     device->bindImageMemory(*image.textureImage, *image.textureImageMemory, 0);
 
-
     return image;
+}
+
+void GpuVulkan::copyBufferToImage(vk::Buffer buffer, vk::Image image, unsigned int width, unsigned int height)
+{
+    auto commandBuffer = oneTimeCommandsStart();
+    
+    vk::BufferImageCopy region;
+    region  .setBufferOffset(0)
+            .setBufferRowLength(0)
+            .setBufferImageHeight(0)
+            .setImageSubresource({vk::ImageAspectFlagBits::eColor,0,0,1})
+            .setImageOffset({0,0,0})
+            .setImageExtent({width, height, 1});
+
+    commandBuffer->copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, 1, &region);    
+
+    oneTimeCommandsEnd(*commandBuffer);
+}
+
+void GpuVulkan::transitionImageLayout(vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
+{
+    auto commandBuffer = oneTimeCommandsStart();
+
+    vk::ImageSubresourceRange range;
+    range   .setAspectMask(vk::ImageAspectFlagBits::eColor)
+            .setBaseMipLevel(0)
+            .setLevelCount(1)
+            .setBaseArrayLayer(0)
+            .setLayerCount(1);
+
+    vk::ImageMemoryBarrier barrier;
+    barrier .setOldLayout(oldLayout)
+            .setNewLayout(newLayout)
+            .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+            .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+            .setImage(image)
+            .setSubresourceRange(range)
+            .setSrcAccessMask(vk::AccessFlags())
+            .setDstAccessMask(vk::AccessFlags());
+
+    vk::PipelineStageFlags srcStageFlags;
+    vk::PipelineStageFlags dstStageFlags;
+
+    if(oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal)
+    {
+        barrier.setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
+        srcStageFlags = vk::PipelineStageFlagBits::eTopOfPipe;
+        dstStageFlags = vk::PipelineStageFlagBits::eTransfer;
+    }
+    else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
+    {
+        barrier .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+        srcStageFlags = vk::PipelineStageFlagBits::eTransfer;
+        dstStageFlags = vk::PipelineStageFlagBits::eFragmentShader;
+    }
+    else
+        throw std::runtime_error("Layout transitions not supported");
+
+    commandBuffer->pipelineBarrier(vk::PipelineStageFlags(), vk::PipelineStageFlags(), vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &barrier);
+
+    oneTimeCommandsEnd(*commandBuffer);
+}
+
+vk::UniqueImageView GpuVulkan::createImageView(vk::Image image, vk::Format format)
+{
+    vk::ImageViewCreateInfo createInfo;
+    createInfo  .setImage(image)
+                .setViewType(vk::ImageViewType::e2D)
+                .setFormat(format)
+                .setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+    
+    vk::UniqueImageView imageView;
+    if (!(imageView = device->createImageViewUnique(createInfo)))
+        throw std::runtime_error("Cannot create imageview"); 
 }
 
 void GpuVulkan::addTexture(std::shared_ptr<Assets::Texture> texture)
@@ -769,8 +845,39 @@ void GpuVulkan::addTexture(std::shared_ptr<Assets::Texture> texture)
     memcpy(data, texture->pixels.data(), size);
     device->unmapMemory(*stagingBuffer.memory); 
    
+    //TODO GPU texturu kde to ulozim?
     Image image = createImage(texture->width, texture->height, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal);
-    
+
+    transitionImageLayout(*image.textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+    copyBufferToImage(*stagingBuffer.buffer, *image.textureImage, texture->width, texture->height); 
+
+    createImageView(*image.textureImage, vk::Format::eR8G8B8A8Unorm);
+
+    vk::UniqueSampler sampler = createSampler();
+}
+
+vk::UniqueSampler GpuVulkan::createSampler()
+{
+    vk::SamplerCreateInfo createInfo;
+    createInfo  .setMagFilter(vk::Filter::eLinear)
+                .setMinFilter(vk::Filter::eLinear)
+                .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+                .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+                .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+                .setAnisotropyEnable(true)
+                .setMaxAnisotropy(16)
+                .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                .setUnnormalizedCoordinates(false)
+                .setCompareEnable(false)
+                .setCompareOp(vk::CompareOp::eAlways)
+                .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                .setMipLodBias(0.0)
+                .setMinLod(0.0)
+                .setMaxLod(0.0);
+
+    vk::UniqueSampler sampler;
+    if(!(sampler = device->createSamplerUnique(createInfo)))
+        throw std::runtime_error("Cannot create sampler");
 }
 
 void GpuVulkan::render()

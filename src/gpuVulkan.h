@@ -118,10 +118,16 @@ class GpuVulkan : public Gpu
         void createFramebuffers();
         void createCommandPool();
         void createCommandBuffers();
+        vk::UniqueCommandBuffer oneTimeCommandsStart();
+        void oneTimeCommandsEnd(vk::CommandBuffer commandBuffer);
+        void transitionImageLayout(vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
         void createPipelineSync();
         Buffer createBuffer(unsigned int size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
         Image createImage(unsigned int width, unsigned int height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlagBits properties);
+        vk::UniqueImageView createImageView(vk::Image image, vk::Format format);
+        vk::UniqueSampler createSampler();
         void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size, vk::DeviceSize srcOffset, vk::DeviceSize dstOffset);
+        void copyBufferToImage(vk::Buffer buffer, vk::Image image, unsigned int width, unsigned int height);
         void createBuffers();
         void updateUniforms(unsigned int imageID);
         void createDescriptorSetLayout();

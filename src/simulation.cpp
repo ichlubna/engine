@@ -67,7 +67,7 @@ void Simulation::step()
 
 void Simulation::run() 
 {
-    auto model = assets->loadModel("../assets/geometry/boxREAL.obj");
+    auto model = assets->loadModel("../assets/geometry/box.obj");
     auto texture = assets->loadTexture("../assets/textures/default.jpg");
     gpu->addModel(model); 
     gpu->addTexture(texture); 
