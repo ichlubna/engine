@@ -59,13 +59,13 @@ std::shared_ptr<Assets::Texture> Assets::loadTexture(const char *path) const
        throw std::runtime_error("Cannot load texture:" + std::string(path)); 
     if (!image.convertTo32Bits())
        throw std::runtime_error("Cannot convert (to 32 bits) texture:" + std::string(path)); 
-
+    
     texture->width = image.getWidth();
     texture->height = image.getHeight();
     unsigned int size = texture->width*texture->height;
     texture->pixels.reserve(size*Texture::BYTES_PER_PIXEL);
 
-    memcpy(texture->pixels.data(), image.accessPixels(), size);
+    memcpy(texture->pixels.data(), image.accessPixels(), size*4);
 
     return texture;
 }

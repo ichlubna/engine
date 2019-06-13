@@ -77,7 +77,7 @@ void Simulation::run()
     std::chrono::duration<double> remainingTime{0.0};
     std::chrono::duration<double> stepTime{stepSize};
    
-    if(fixedFPS) [[unlikely]]
+    if(fixedFPS)// [[unlikely]]
         while(!end)
         {        
             auto currentTime = std::chrono::high_resolution_clock::now();

@@ -340,15 +340,23 @@ void GpuVulkan::createRenderPass()
 
 void GpuVulkan::createDescriptorSetLayout()
 {
-    vk::DescriptorSetLayoutBinding layoutBinding;
-    layoutBinding   .setBinding(bindings.viewProjectionMatrix)
+    vk::DescriptorSetLayoutBinding uboLayoutBinding;
+    uboLayoutBinding.setBinding(bindings.viewProjectionMatrix)
                     .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                     .setDescriptorCount(1)
                     .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+    
+    vk::DescriptorSetLayoutBinding samplerLayoutBinding;
+    samplerLayoutBinding.setBinding(bindings.texture)
+                        .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                        .setDescriptorCount(TEXTURE_COUNT)
+                        .setStageFlags(vk::ShaderStageFlagBits::eFragment);
+
+    std::vector<vk::DescriptorSetLayoutBinding> bindings{uboLayoutBinding, samplerLayoutBinding};
 
     vk::DescriptorSetLayoutCreateInfo createInfo;
-    createInfo  .setBindingCount(1)
-                .setPBindings(&layoutBinding);
+    createInfo  .setBindingCount(bindings.size())
+                .setPBindings(bindings.data());
 
     if(!(descriptorSetLayout = device->createDescriptorSetLayoutUnique(createInfo)))
         throw std::runtime_error("Cannot create descriptor set layout.");
@@ -377,7 +385,8 @@ void GpuVulkan::createGraphicsPipeline()
             .setInputRate(vk::VertexInputRate::eVertex);
 
     std::vector<vk::VertexInputAttributeDescription> attributes;
-    attributes.push_back({0, locations.position, vk::Format::eR32G32B32Sfloat, offsetof(Assets::Vertex, position)});
+    attributes.push_back({locations.position, 0, vk::Format::eR32G32B32Sfloat, offsetof(Assets::Vertex, position)});
+    attributes.push_back({locations.uv, 0, vk::Format::eR16G16Snorm, offsetof(Assets::Vertex, uv)});
 
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
     vertexInputInfo .setVertexBindingDescriptionCount(1)
@@ -618,14 +627,19 @@ void GpuVulkan::updateUniforms(unsigned int imageID)
 
 void GpuVulkan::createDescriptorPool()
 {
-    vk::DescriptorPoolSize poolSize;
-    poolSize.setDescriptorCount(frames.size())
-            .setType(vk::DescriptorType::eUniformBuffer);  
+    vk::DescriptorPoolSize uboPoolSize;
+    uboPoolSize .setDescriptorCount(frames.size())
+                .setType(vk::DescriptorType::eUniformBuffer);  
+    vk::DescriptorPoolSize samplerPoolSize;
+    samplerPoolSize .setDescriptorCount(frames.size())
+                    .setType(vk::DescriptorType::eCombinedImageSampler); 
+
+    std::vector<vk::DescriptorPoolSize> sizes{uboPoolSize, samplerPoolSize};
 
     vk::DescriptorPoolCreateInfo createInfo;
-    createInfo  .setPoolSizeCount(1)
+    createInfo  .setPoolSizeCount(sizes.size())
                 .setMaxSets(frames.size())
-                .setPPoolSizes(&poolSize);
+                .setPPoolSizes(sizes.data());
     if(!(descriptorPool = device->createDescriptorPoolUnique(createInfo)))
         throw std::runtime_error("Cannot create a descriptor pool.");
 }
@@ -646,16 +660,37 @@ void GpuVulkan::createDescriptorSets()
                     .setOffset(0)
                     .setRange(VP_BUFFER_SIZE);
 
-        vk::WriteDescriptorSet writeSet;
-        writeSet.setDstSet(*frame->descriptorSet)
+        std::vector<vk::DescriptorImageInfo> imageInfos;
+        //for(const auto &texture : textures)
+        for(int i=0; i<TEXTURE_COUNT; i++)
+        {
+            vk::DescriptorImageInfo imageInfo;
+//            imageInfo   .setImageView(*texture.imageView)
+//                        .setSampler(*texture.sampler);
+            imageInfo   .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                        .setImageView(*textures[i].imageView)
+                        .setSampler(*textures[i].sampler);
+            imageInfos.push_back(imageInfo);
+        }
+
+        vk::WriteDescriptorSet uboWriteSet;
+        uboWriteSet.setDstSet(*frame->descriptorSet)
                 .setDstBinding(bindings.viewProjectionMatrix)
                 .setDstArrayElement(0)
                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1)
                 .setPBufferInfo(&bufferInfo);
+        
+        vk::WriteDescriptorSet textureWriteSet;
+        textureWriteSet.setDstSet(*frame->descriptorSet)
+                .setDstBinding(bindings.texture)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(imageInfos.size())
+                .setPImageInfo(imageInfos.data());
 
-       device->updateDescriptorSets(1, &writeSet, 0, nullptr);
-            
+       std::vector<vk::WriteDescriptorSet> writeSets{uboWriteSet, textureWriteSet};
+       device->updateDescriptorSets(writeSets.size(), writeSets.data(), 0, nullptr);     
     }
 }
 
@@ -803,6 +838,7 @@ void GpuVulkan::transitionImageLayout(vk::Image image, vk::Format format, vk::Im
 
     if(oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal)
     {
+        barrier.setSrcAccessMask(vk::AccessFlagBits());
         barrier.setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
         srcStageFlags = vk::PipelineStageFlagBits::eTopOfPipe;
         dstStageFlags = vk::PipelineStageFlagBits::eTransfer;
@@ -817,7 +853,7 @@ void GpuVulkan::transitionImageLayout(vk::Image image, vk::Format format, vk::Im
     else
         throw std::runtime_error("Layout transitions not supported");
 
-    commandBuffer->pipelineBarrier(vk::PipelineStageFlags(), vk::PipelineStageFlags(), vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &barrier);
+    commandBuffer->pipelineBarrier(srcStageFlags, dstStageFlags, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &barrier);
 
     oneTimeCommandsEnd(*commandBuffer);
 }
@@ -833,27 +869,34 @@ vk::UniqueImageView GpuVulkan::createImageView(vk::Image image, vk::Format forma
     vk::UniqueImageView imageView;
     if (!(imageView = device->createImageViewUnique(createInfo)))
         throw std::runtime_error("Cannot create imageview"); 
+
+    return imageView;
 }
 
-void GpuVulkan::addTexture(std::shared_ptr<Assets::Texture> texture)
+void GpuVulkan::allocateTextures()
 {
-    unsigned int size = texture->width*texture->height*texture->BYTES_PER_PIXEL;
-    
+    for(int i=0; i<TEXTURE_COUNT; i++)
+    {
+        textures[i].image = createImage(TEXTURE_WIDTH, TEXTURE_HEIGHT, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal);
+        textures[i].imageView = createImageView(*textures[i].image.textureImage, vk::Format::eR8G8B8A8Unorm);
+        textures[i].sampler = createSampler();
+    }
+}
+
+void GpuVulkan::addTexture(std::shared_ptr<Assets::Texture> textureAsset)
+{
+    //TODO manage
+    int index = 0;
+
+    unsigned int size = textureAsset->width*textureAsset->height*textureAsset->BYTES_PER_PIXEL;
     Buffer stagingBuffer = createBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
     void *data;
     device->mapMemory(*stagingBuffer.memory, 0, size, vk::MemoryMapFlags(), &data);
-    memcpy(data, texture->pixels.data(), size);
+    memcpy(data, textureAsset->pixels.data(), size);
     device->unmapMemory(*stagingBuffer.memory); 
-   
-    //TODO GPU texturu kde to ulozim?
-    Image image = createImage(texture->width, texture->height, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal);
-
-    transitionImageLayout(*image.textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
-    copyBufferToImage(*stagingBuffer.buffer, *image.textureImage, texture->width, texture->height); 
-
-    createImageView(*image.textureImage, vk::Format::eR8G8B8A8Unorm);
-
-    vk::UniqueSampler sampler = createSampler();
+    transitionImageLayout(*textures[index].image.textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+    copyBufferToImage(*stagingBuffer.buffer, *textures[index].image.textureImage, textureAsset->width, textureAsset->height);
+    transitionImageLayout(*textures[index].image.textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
 }
 
 vk::UniqueSampler GpuVulkan::createSampler()
@@ -878,6 +921,8 @@ vk::UniqueSampler GpuVulkan::createSampler()
     vk::UniqueSampler sampler;
     if(!(sampler = device->createSamplerUnique(createInfo)))
         throw std::runtime_error("Cannot create sampler");
+
+    return sampler;
 }
 
 void GpuVulkan::render()
@@ -955,6 +1000,7 @@ GpuVulkan::GpuVulkan(Window* w) : Gpu(w)
 	createSwapChain();
     createSwapChainImageViews();
     createRenderPass();
+    allocateTextures();
     createDescriptorSetLayout();
     createGraphicsPipeline();
     createFramebuffers();

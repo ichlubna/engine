@@ -21,6 +21,7 @@ class GpuVulkan : public Gpu
         const struct
         {
             unsigned int viewProjectionMatrix{0};
+            unsigned int texture{1};
         } bindings;
  
         struct PipelineSync
@@ -46,6 +47,13 @@ class GpuVulkan : public Gpu
             vk::UniqueDeviceMemory textureImageMemory;
         };
         
+        struct Texture
+        {
+            Image image;
+            vk::UniqueImageView imageView;
+            vk::UniqueSampler sampler;
+        };
+
         struct SwapChainFrame
         {
             vk::Image image;
@@ -58,11 +66,14 @@ class GpuVulkan : public Gpu
  
         const int CONCURRENT_FRAMES_COUNT = 2;
         //TODO 100???
-        const int VERTEX_BUFFER_SIZE = 100*sizeof(Assets::Vertex);
-        const int INDEX_BUFFER_SIZE = 100*sizeof(decltype(Assets::Model::indices)::value_type);
-        const int VP_BUFFER_SIZE = sizeof(glm::mat4);
+        const int VERTEX_BUFFER_SIZE{100*sizeof(Assets::Vertex)};
+        const int INDEX_BUFFER_SIZE{100*sizeof(decltype(Assets::Model::indices)::value_type)};
+        const int VP_BUFFER_SIZE{sizeof(glm::mat4)};
+        static constexpr int TEXTURE_WIDTH{150};
+        static constexpr int TEXTURE_HEIGHT{150};
+        static constexpr int TEXTURE_COUNT{1};
 
-        unsigned int processedFrame = 0;
+        unsigned int processedFrame{0};
 
         glm::mat4 vpMatrix;
 
@@ -83,6 +94,8 @@ class GpuVulkan : public Gpu
         std::vector<std::unique_ptr<SwapChainFrame>> frames;
 		std::vector<const char*> validationLayers;
         std::vector<PipelineSync> pipelineSync;
+        //std::vector<Texture> textures;
+        Texture textures[TEXTURE_COUNT];
 
 		struct
 		{
@@ -122,6 +135,7 @@ class GpuVulkan : public Gpu
         void oneTimeCommandsEnd(vk::CommandBuffer commandBuffer);
         void transitionImageLayout(vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
         void createPipelineSync();
+        void allocateTextures();
         Buffer createBuffer(unsigned int size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
         Image createImage(unsigned int width, unsigned int height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlagBits properties);
         vk::UniqueImageView createImageView(vk::Image image, vk::Format format);
