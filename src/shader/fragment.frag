@@ -1,11 +1,14 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+layout(constant_id = 0) const int MAX_TEXTURES;
+
 layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 outColor;
-layout(set = 0, binding = 1) uniform sampler2D textures[1];
+layout(set = 0, binding = 1) uniform texture2D textures[MAX_TEXTURES];
+layout(set = 0, binding = 2) uniform sampler samp;
 
 void main()
 {
-    outColor = texture(textures[0],uv);
+    outColor = texture(sampler2D(textures[0], samp),uv);
 }

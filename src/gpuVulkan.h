@@ -22,8 +22,9 @@ class GpuVulkan : public Gpu
         {
             unsigned int viewProjectionMatrix{0};
             unsigned int texture{1};
+            unsigned int sampler{2};
         } bindings;
- 
+
         struct PipelineSync
         {
             struct
@@ -51,7 +52,6 @@ class GpuVulkan : public Gpu
         {
             Image image;
             vk::UniqueImageView imageView;
-            vk::UniqueSampler sampler;
         };
 
         struct SwapChainFrame
@@ -63,19 +63,27 @@ class GpuVulkan : public Gpu
             Buffer uniformVpMatrix;
             vk::UniqueDescriptorSet descriptorSet;
         };
+        
+        struct Textures
+        {
+            static constexpr int WIDTH{150};
+            static constexpr int HEIGHT{150};
+            static constexpr int MAX_COUNT{5};
+            unsigned int top{0}; 
+            Texture images[MAX_COUNT];
+        };
  
         const int CONCURRENT_FRAMES_COUNT = 2;
         //TODO 100???
         const int VERTEX_BUFFER_SIZE{100*sizeof(Assets::Vertex)};
         const int INDEX_BUFFER_SIZE{100*sizeof(decltype(Assets::Model::indices)::value_type)};
         const int VP_BUFFER_SIZE{sizeof(glm::mat4)};
-        static constexpr int TEXTURE_WIDTH{150};
-        static constexpr int TEXTURE_HEIGHT{150};
-        static constexpr int TEXTURE_COUNT{1};
 
         unsigned int processedFrame{0};
 
         glm::mat4 vpMatrix;
+            
+        vk::UniqueSampler sampler;
 
 	    vk::UniqueInstance instance;
 		vk::PhysicalDevice physicalDevice;
@@ -94,8 +102,7 @@ class GpuVulkan : public Gpu
         std::vector<std::unique_ptr<SwapChainFrame>> frames;
 		std::vector<const char*> validationLayers;
         std::vector<PipelineSync> pipelineSync;
-        //std::vector<Texture> textures;
-        Texture textures[TEXTURE_COUNT];
+        Textures textures;
 
 		struct
 		{

@@ -62,10 +62,10 @@ std::shared_ptr<Assets::Texture> Assets::loadTexture(const char *path) const
     
     texture->width = image.getWidth();
     texture->height = image.getHeight();
-    unsigned int size = texture->width*texture->height;
-    texture->pixels.reserve(size*Texture::BYTES_PER_PIXEL);
+    unsigned int size = image.getImageSize();
+    texture->pixels.reserve(size);
 
-    memcpy(texture->pixels.data(), image.accessPixels(), size*4);
+    memcpy(texture->pixels.data(), image.accessPixels(), size);
 
     return texture;
 }

@@ -286,6 +286,8 @@ std::vector<char> GpuVulkan::loadShader(const char *path)
     return buffer;
 }
 
+init texturey na 0
+
 vk::UniqueShaderModule GpuVulkan::createShaderModule(std::vector<char> source)
 {
     vk::ShaderModuleCreateInfo createInfo;
@@ -347,12 +349,19 @@ void GpuVulkan::createDescriptorSetLayout()
                     .setStageFlags(vk::ShaderStageFlagBits::eVertex);
     
     vk::DescriptorSetLayoutBinding samplerLayoutBinding;
-    samplerLayoutBinding.setBinding(bindings.texture)
-                        .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                        .setDescriptorCount(TEXTURE_COUNT)
+    samplerLayoutBinding.setBinding(bindings.sampler)
+                        .setDescriptorType(vk::DescriptorType::eSampler)
+                        .setDescriptorCount(1)
                         .setStageFlags(vk::ShaderStageFlagBits::eFragment);
 
-    std::vector<vk::DescriptorSetLayoutBinding> bindings{uboLayoutBinding, samplerLayoutBinding};
+    vk::DescriptorSetLayoutBinding textureLayoutBinding;
+    textureLayoutBinding.setBinding(bindings.texture)
+                        .setDescriptorType(vk::DescriptorType::eSampledImage)
+                        .setDescriptorCount(textures.MAX_COUNT)
+                        .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                        .setPImmutableSamplers(0);
+
+    std::vector<vk::DescriptorSetLayoutBinding> bindings{uboLayoutBinding, samplerLayoutBinding, textureLayoutBinding};
 
     vk::DescriptorSetLayoutCreateInfo createInfo;
     createInfo  .setBindingCount(bindings.size())
@@ -368,7 +377,7 @@ void GpuVulkan::createGraphicsPipeline()
     auto vertexShader = loadShader("../precompiled/vertex.spv"); 
     auto fragmentShader = loadShader("../precompiled/fragment.spv");
     vk::UniqueShaderModule vertexModule = createShaderModule(vertexShader); 
-    vk::UniqueShaderModule fragmentModule = createShaderModule(fragmentShader);
+    vk::UniqueShaderModule fragmentModule = createShaderModule(fragmentShader); 
 
     std::vector<vk::PipelineShaderStageCreateInfo> shaderStages(2);
     shaderStages.at(0)  .setStage(vk::ShaderStageFlagBits::eVertex)
@@ -632,7 +641,7 @@ void GpuVulkan::createDescriptorPool()
                 .setType(vk::DescriptorType::eUniformBuffer);  
     vk::DescriptorPoolSize samplerPoolSize;
     samplerPoolSize .setDescriptorCount(frames.size())
-                    .setType(vk::DescriptorType::eCombinedImageSampler); 
+                    .setType(vk::DescriptorType::eSampler); 
 
     std::vector<vk::DescriptorPoolSize> sizes{uboPoolSize, samplerPoolSize};
 
@@ -662,14 +671,14 @@ void GpuVulkan::createDescriptorSets()
 
         std::vector<vk::DescriptorImageInfo> imageInfos;
         //for(const auto &texture : textures)
-        for(int i=0; i<TEXTURE_COUNT; i++)
+        for(int i=0; i<textures.MAX_COUNT; i++)
         {
             vk::DescriptorImageInfo imageInfo;
 //            imageInfo   .setImageView(*texture.imageView)
 //                        .setSampler(*texture.sampler);
             imageInfo   .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                        .setImageView(*textures[i].imageView)
-                        .setSampler(*textures[i].sampler);
+                        .setImageView(*textures.images[i].imageView)
+                        .setSampler(nullptr);
             imageInfos.push_back(imageInfo);
         }
 
@@ -685,11 +694,21 @@ void GpuVulkan::createDescriptorSets()
         textureWriteSet.setDstSet(*frame->descriptorSet)
                 .setDstBinding(bindings.texture)
                 .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(imageInfos.size())
+                .setDescriptorType(vk::DescriptorType::eSampledImage)
+                .setDescriptorCount(textures.MAX_COUNT)
                 .setPImageInfo(imageInfos.data());
+        
+        vk::WriteDescriptorSet samplerWriteSet;
+        vk::DescriptorImageInfo samplerInfo;
+        samplerInfo.setSampler(*sampler);
+        samplerWriteSet.setDstSet(*frame->descriptorSet)
+                .setDstBinding(bindings.sampler)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eSampler)
+                .setDescriptorCount(1)
+                .setPImageInfo(&samplerInfo);
 
-       std::vector<vk::WriteDescriptorSet> writeSets{uboWriteSet, textureWriteSet};
+       std::vector<vk::WriteDescriptorSet> writeSets{uboWriteSet, textureWriteSet, samplerWriteSet};
        device->updateDescriptorSets(writeSets.size(), writeSets.data(), 0, nullptr);     
     }
 }
@@ -875,12 +894,12 @@ vk::UniqueImageView GpuVulkan::createImageView(vk::Image image, vk::Format forma
 
 void GpuVulkan::allocateTextures()
 {
-    for(int i=0; i<TEXTURE_COUNT; i++)
+    for(int i=0; i<textures.MAX_COUNT; i++)
     {
-        textures[i].image = createImage(TEXTURE_WIDTH, TEXTURE_HEIGHT, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal);
-        textures[i].imageView = createImageView(*textures[i].image.textureImage, vk::Format::eR8G8B8A8Unorm);
-        textures[i].sampler = createSampler();
+        textures.images[i].image = createImage(textures.WIDTH, textures.HEIGHT, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal);
+        textures.images[i].imageView = createImageView(*textures.images[i].image.textureImage, vk::Format::eR8G8B8A8Unorm);
     }
+    sampler = createSampler();
 }
 
 void GpuVulkan::addTexture(std::shared_ptr<Assets::Texture> textureAsset)
@@ -894,9 +913,9 @@ void GpuVulkan::addTexture(std::shared_ptr<Assets::Texture> textureAsset)
     device->mapMemory(*stagingBuffer.memory, 0, size, vk::MemoryMapFlags(), &data);
     memcpy(data, textureAsset->pixels.data(), size);
     device->unmapMemory(*stagingBuffer.memory); 
-    transitionImageLayout(*textures[index].image.textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
-    copyBufferToImage(*stagingBuffer.buffer, *textures[index].image.textureImage, textureAsset->width, textureAsset->height);
-    transitionImageLayout(*textures[index].image.textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+    transitionImageLayout(*textures.images[index].image.textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+    copyBufferToImage(*stagingBuffer.buffer, *textures.images[index].image.textureImage, textureAsset->width, textureAsset->height);
+    transitionImageLayout(*textures.images[index].image.textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
 }
 
 vk::UniqueSampler GpuVulkan::createSampler()
