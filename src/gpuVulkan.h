@@ -68,7 +68,7 @@ class GpuVulkan : public Gpu
         {
             static constexpr int WIDTH{150};
             static constexpr int HEIGHT{150};
-            static constexpr int MAX_COUNT{5};
+            static constexpr int MAX_COUNT{1};
             unsigned int top{0}; 
             Texture images[MAX_COUNT];
         };

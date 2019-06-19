@@ -286,8 +286,6 @@ std::vector<char> GpuVulkan::loadShader(const char *path)
     return buffer;
 }
 
-init texturey na 0
-
 vk::UniqueShaderModule GpuVulkan::createShaderModule(std::vector<char> source)
 {
     vk::ShaderModuleCreateInfo createInfo;
@@ -379,6 +377,14 @@ void GpuVulkan::createGraphicsPipeline()
     vk::UniqueShaderModule vertexModule = createShaderModule(vertexShader); 
     vk::UniqueShaderModule fragmentModule = createShaderModule(fragmentShader); 
 
+    vk::SpecializationMapEntry entry{0, 0, sizeof(int32_t)};
+    vk::SpecializationInfo specInfo;
+    int specConst = textures.MAX_COUNT;
+    specInfo.setMapEntryCount(1)
+            .setPMapEntries(&entry) 
+            .setDataSize(sizeof(uint32_t))
+            .setPData(&specConst);
+
     std::vector<vk::PipelineShaderStageCreateInfo> shaderStages(2);
     shaderStages.at(0)  .setStage(vk::ShaderStageFlagBits::eVertex)
                         .setModule(*vertexModule)
@@ -386,7 +392,8 @@ void GpuVulkan::createGraphicsPipeline()
                         .setPSpecializationInfo(nullptr); //can set shader constants - changing behaviour at creation
     shaderStages.at(1)  .setStage(vk::ShaderStageFlagBits::eFragment)
                         .setModule(*fragmentModule)
-                        .setPName("main");
+                        .setPName("main")
+                        .setPSpecializationInfo(&specInfo);
 
     vk::VertexInputBindingDescription binding;
     binding .setBinding(0)
