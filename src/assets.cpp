@@ -69,3 +69,4 @@ std::shared_ptr<Assets::Texture> Assets::loadTexture(const char *path) const
 
     return texture;
 }
+

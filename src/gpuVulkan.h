@@ -68,7 +68,7 @@ class GpuVulkan : public Gpu
         {
             static constexpr int WIDTH{150};
             static constexpr int HEIGHT{150};
-            static constexpr int MAX_COUNT{1};
+            static constexpr int MAX_COUNT{5};
             unsigned int top{0}; 
             Texture images[MAX_COUNT];
         };
@@ -143,6 +143,7 @@ class GpuVulkan : public Gpu
         void transitionImageLayout(vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
         void createPipelineSync();
         void allocateTextures();
+        void setTexturesLayouts();
         Buffer createBuffer(unsigned int size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
         Image createImage(unsigned int width, unsigned int height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlagBits properties);
         vk::UniqueImageView createImageView(vk::Image image, vk::Format format);

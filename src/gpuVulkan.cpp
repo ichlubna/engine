@@ -377,7 +377,10 @@ void GpuVulkan::createGraphicsPipeline()
     vk::UniqueShaderModule vertexModule = createShaderModule(vertexShader); 
     vk::UniqueShaderModule fragmentModule = createShaderModule(fragmentShader); 
 
-    vk::SpecializationMapEntry entry{0, 0, sizeof(int32_t)};
+    vk::SpecializationMapEntry entry;
+    entry   .setConstantID(0)
+            .setOffset(0)
+            .setSize(sizeof(int32_t));
     vk::SpecializationInfo specInfo;
     int specConst = textures.MAX_COUNT;
     specInfo.setMapEntryCount(1)
@@ -649,8 +652,11 @@ void GpuVulkan::createDescriptorPool()
     vk::DescriptorPoolSize samplerPoolSize;
     samplerPoolSize .setDescriptorCount(frames.size())
                     .setType(vk::DescriptorType::eSampler); 
+    vk::DescriptorPoolSize imagePoolSize;
+    imagePoolSize   .setDescriptorCount(textures.MAX_COUNT*frames.size())
+                    .setType(vk::DescriptorType::eSampledImage); 
 
-    std::vector<vk::DescriptorPoolSize> sizes{uboPoolSize, samplerPoolSize};
+    std::vector<vk::DescriptorPoolSize> sizes{uboPoolSize, samplerPoolSize, imagePoolSize};
 
     vk::DescriptorPoolCreateInfo createInfo;
     createInfo  .setPoolSizeCount(sizes.size())
@@ -909,10 +915,23 @@ void GpuVulkan::allocateTextures()
     sampler = createSampler();
 }
 
+void GpuVulkan::setTexturesLayouts()
+{   
+     for(int i=0; i<textures.MAX_COUNT; i++)
+     {
+        transitionImageLayout(*textures.images[i].image.textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+        transitionImageLayout(*textures.images[i].image.textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+     }
+
+}
+
 void GpuVulkan::addTexture(std::shared_ptr<Assets::Texture> textureAsset)
 {
-    //TODO manage
-    int index = 0;
+    if(textures.top+1 >= textures.MAX_COUNT) 
+        throw std::runtime_error("Cannot add new texture, limit exceeded"); 
+
+    int index = textures.top;
+    textures.top++;
 
     unsigned int size = textureAsset->width*textureAsset->height*textureAsset->BYTES_PER_PIXEL;
     Buffer stagingBuffer = createBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
@@ -1036,6 +1055,7 @@ GpuVulkan::GpuVulkan(Window* w) : Gpu(w)
     createCommandPool();
     createCommandBuffers();
     createPipelineSync();
+    setTexturesLayouts();
 }
 
 GpuVulkan::~GpuVulkan()
