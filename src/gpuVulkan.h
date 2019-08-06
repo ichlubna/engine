@@ -103,6 +103,7 @@ class GpuVulkan : public Gpu
 		std::vector<const char*> validationLayers;
         std::vector<PipelineSync> pipelineSync;
         Textures textures;
+        Texture depthImage;
 
 		struct
 		{
@@ -138,6 +139,9 @@ class GpuVulkan : public Gpu
         void createFramebuffers();
         void createCommandPool();
         void createCommandBuffers();
+        vk::Format getSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
+        vk::Format getDepthFormat();
+        void createDepthImage();
         vk::UniqueCommandBuffer oneTimeCommandsStart();
         void oneTimeCommandsEnd(vk::CommandBuffer commandBuffer);
         void transitionImageLayout(vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
@@ -146,7 +150,7 @@ class GpuVulkan : public Gpu
         void setTexturesLayouts();
         Buffer createBuffer(unsigned int size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
         Image createImage(unsigned int width, unsigned int height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlagBits properties);
-        vk::UniqueImageView createImageView(vk::Image image, vk::Format format);
+        vk::UniqueImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags);
         vk::UniqueSampler createSampler();
         void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size, vk::DeviceSize srcOffset, vk::DeviceSize dstOffset);
         void copyBufferToImage(vk::Buffer buffer, vk::Image image, unsigned int width, unsigned int height);

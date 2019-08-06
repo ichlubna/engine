@@ -269,7 +269,7 @@ void GpuVulkan::createSwapChain()
 void GpuVulkan::createSwapChainImageViews()
 {
     for(auto &frame : frames)
-        frame->imageView = createImageView(frame->image, swapChainImgFormat);
+        frame->imageView = createImageView(frame->image, swapChainImgFormat, vk::ImageAspectFlagBits::eColor);
 }
 
 std::vector<char> GpuVulkan::loadShader(const char *path)
@@ -308,15 +308,30 @@ void GpuVulkan::createRenderPass()
                     .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                     .setInitialLayout(vk::ImageLayout::eUndefined)
                     .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+    
+    vk::AttachmentDescription depthAttachement;
+    depthAttachement.setFormat(getDepthFormat())
+                    .setSamples(vk::SampleCountFlagBits::e1)
+                    .setLoadOp(vk::AttachmentLoadOp::eClear)
+                    .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                    .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                    .setInitialLayout(vk::ImageLayout::eUndefined)
+                    .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
     vk::AttachmentReference colorAttachementRef;
     colorAttachementRef .setAttachment(0)
                         .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+    
+    vk::AttachmentReference depthAttachementRef;
+    depthAttachementRef .setAttachment(1)
+                        .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
     vk::SubpassDescription subpass;
     subpass .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
             .setColorAttachmentCount(1)
-            .setPColorAttachments(&colorAttachementRef);
+            .setPColorAttachments(&colorAttachementRef)
+            .setPDepthStencilAttachment(&depthAttachementRef);
     
     vk::SubpassDependency dependency;
     dependency  .setSrcSubpass(VK_SUBPASS_EXTERNAL)
@@ -326,9 +341,10 @@ void GpuVulkan::createRenderPass()
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite)
                 .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite);
 
+    std::vector<vk::AttachmentDescription> attachements{colorAttachement, depthAttachement};
     vk::RenderPassCreateInfo createInfo;
-    createInfo  .setAttachmentCount(1)
-                .setPAttachments(&colorAttachement)
+    createInfo  .setAttachmentCount(attachements.size())
+                .setPAttachments(attachements.data())
                 .setSubpassCount(1)
                 .setPSubpasses(&subpass)
                 .setDependencyCount(1)
@@ -481,6 +497,17 @@ void GpuVulkan::createGraphicsPipeline()
     if(!(pipelineLayout = device->createPipelineLayoutUnique(layoutInfo)))
         throw std::runtime_error("Cannot create pipeline layout.");
 
+    vk::PipelineDepthStencilStateCreateInfo depthStencil;
+    depthStencil.setDepthTestEnable(VK_TRUE)
+                .setDepthWriteEnable(VK_TRUE)
+                .setDepthCompareOp(vk::CompareOp::eLess)
+                .setDepthBoundsTestEnable(VK_FALSE)
+                .setMinDepthBounds(0.0f)
+                .setMaxDepthBounds(1.0f)
+                .setStencilTestEnable(VK_FALSE)
+                .setFront({})
+                .setBack({});
+
     vk::GraphicsPipelineCreateInfo createInfo;
     createInfo  .setStageCount(shaderStages.size())
                 .setPStages(shaderStages.data())
@@ -489,7 +516,7 @@ void GpuVulkan::createGraphicsPipeline()
                 .setPViewportState(&viewportStateInfo)
                 .setPRasterizationState(&rasterizerInfo)
                 .setPMultisampleState(&multisampleInfo)
-                .setPDepthStencilState(nullptr)
+                .setPDepthStencilState(&depthStencil)
                 .setPColorBlendState(&blendStateInfo)
                 .setPDynamicState(nullptr)
                 .setLayout(*pipelineLayout)
@@ -506,8 +533,7 @@ void GpuVulkan::createFramebuffers()
 {
     for(auto &frame : frames)
     {
-        std::vector<vk::ImageView> attachments;
-        attachments.push_back(*frame->imageView);
+        std::vector<vk::ImageView> attachments = {*frame->imageView, *depthImage.imageView};
     
         vk::FramebufferCreateInfo createInfo;
         createInfo  .setRenderPass(*renderPass)
@@ -549,12 +575,12 @@ void GpuVulkan::createCommandBuffers()
             throw std::runtime_error("Command buffer recording couldn't begin.");
     
         vk::RenderPassBeginInfo passBeginInfo;
-        vk::ClearValue clearValue(vk::ClearColorValue().setFloat32({0.0,0.0,0.0,1.0}));
+        std::vector<vk::ClearValue> clearValues{vk::ClearColorValue().setFloat32({0.0,0.0,0.0,1.0}), vk::ClearDepthStencilValue(1.0f, 0.0f)};
         passBeginInfo   .setRenderPass(*renderPass)
                         .setFramebuffer(*frame->frameBuffer)
                         .setRenderArea(vk::Rect2D(vk::Offset2D(), extent))
-                        .setClearValueCount(1)
-                        .setPClearValues(&clearValue);
+                        .setClearValueCount(clearValues.size())
+                        .setPClearValues(clearValues.data());
 
         frame->commandBuffer->beginRenderPass(passBeginInfo, vk::SubpassContents::eInline);
         frame->commandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
@@ -726,6 +752,36 @@ void GpuVulkan::createDescriptorSets()
     }
 }
 
+vk::Format GpuVulkan::getSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) {
+    for (auto format : candidates)
+    {
+        vk::FormatProperties properties;
+        physicalDevice.getFormatProperties(format, &properties);
+
+        if (tiling == vk::ImageTiling::eLinear && (properties.linearTilingFeatures & features) == features) 
+            return format;
+        else if (tiling == vk::ImageTiling::eOptimal && (properties.optimalTilingFeatures & features) == features) 
+            return format;
+    }
+
+    throw std::runtime_error("Cannot find supported format!");
+}
+
+vk::Format GpuVulkan::getDepthFormat()
+{
+    return getSupportedFormat({vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint}, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+
+}
+
+void GpuVulkan::createDepthImage()
+{
+    vk::Format format = getDepthFormat();
+    depthImage.image = createImage(extent.width, extent.height, format, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal);
+    depthImage.imageView = createImageView(*depthImage.image.textureImage, format, vk::ImageAspectFlagBits::eDepth);
+    transitionImageLayout(*depthImage.image.textureImage, format, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+    
+}
+
 vk::UniqueCommandBuffer GpuVulkan::oneTimeCommandsStart()
 {
     vk::CommandBufferAllocateInfo allocInfo;
@@ -817,7 +873,7 @@ GpuVulkan::Image GpuVulkan::createImage(unsigned int width, unsigned int height,
 
     vk::MemoryAllocateInfo allocInfo;
     allocInfo   .setAllocationSize(requirements.size)
-                .setMemoryTypeIndex(getMemoryType(requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
+                .setMemoryTypeIndex(getMemoryType(requirements.memoryTypeBits, properties));//vk::MemoryPropertyFlagBits::eDeviceLocal));
     
     if(!(image.textureImageMemory = device->allocateMemoryUnique(allocInfo)))
         throw std::runtime_error("Cannot allocate image memory.");
@@ -855,6 +911,15 @@ void GpuVulkan::transitionImageLayout(vk::Image image, vk::Format format, vk::Im
             .setBaseArrayLayer(0)
             .setLayerCount(1);
 
+    if (newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+    {
+        range.setAspectMask(vk::ImageAspectFlagBits::eDepth);
+        if(format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint)
+            range.aspectMask |= vk::ImageAspectFlagBits::eStencil;
+    }
+    else
+        range.setAspectMask(vk::ImageAspectFlagBits::eColor);
+    
     vk::ImageMemoryBarrier barrier;
     barrier .setOldLayout(oldLayout)
             .setNewLayout(newLayout)
@@ -864,6 +929,7 @@ void GpuVulkan::transitionImageLayout(vk::Image image, vk::Format format, vk::Im
             .setSubresourceRange(range)
             .setSrcAccessMask(vk::AccessFlags())
             .setDstAccessMask(vk::AccessFlags());
+
 
     vk::PipelineStageFlags srcStageFlags;
     vk::PipelineStageFlags dstStageFlags;
@@ -882,6 +948,13 @@ void GpuVulkan::transitionImageLayout(vk::Image image, vk::Format format, vk::Im
         srcStageFlags = vk::PipelineStageFlagBits::eTransfer;
         dstStageFlags = vk::PipelineStageFlagBits::eFragmentShader;
     }
+    else if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal)
+    {
+        barrier .setSrcAccessMask(vk::AccessFlagBits())
+                .setDstAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite);
+        srcStageFlags = vk::PipelineStageFlagBits::eTopOfPipe;
+        dstStageFlags = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+    }
     else
         throw std::runtime_error("Layout transitions not supported");
 
@@ -890,13 +963,13 @@ void GpuVulkan::transitionImageLayout(vk::Image image, vk::Format format, vk::Im
     oneTimeCommandsEnd(*commandBuffer);
 }
 
-vk::UniqueImageView GpuVulkan::createImageView(vk::Image image, vk::Format format)
+vk::UniqueImageView GpuVulkan::createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags)
 {
     vk::ImageViewCreateInfo createInfo;
     createInfo  .setImage(image)
                 .setViewType(vk::ImageViewType::e2D)
                 .setFormat(format)
-                .setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+                .setSubresourceRange(vk::ImageSubresourceRange(aspectFlags, 0, 1, 0, 1));
     
     vk::UniqueImageView imageView;
     if (!(imageView = device->createImageViewUnique(createInfo)))
@@ -910,7 +983,7 @@ void GpuVulkan::allocateTextures()
     for(int i=0; i<textures.MAX_COUNT; i++)
     {
         textures.images[i].image = createImage(textures.WIDTH, textures.HEIGHT, vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal);
-        textures.images[i].imageView = createImageView(*textures.images[i].image.textureImage, vk::Format::eR8G8B8A8Unorm);
+        textures.images[i].imageView = createImageView(*textures.images[i].image.textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageAspectFlagBits::eColor);
     }
     sampler = createSampler();
 }
@@ -1032,6 +1105,7 @@ void GpuVulkan::recreateSwapChain()
     createSwapChainImageViews();
     createRenderPass();
     createGraphicsPipeline();
+    createDepthImage();
     createFramebuffers();
     createCommandBuffers();
 }
@@ -1048,11 +1122,12 @@ GpuVulkan::GpuVulkan(Window* w) : Gpu(w)
     allocateTextures();
     createDescriptorSetLayout();
     createGraphicsPipeline();
+    createCommandPool();
+    createDepthImage();
     createFramebuffers();
     createBuffers();
     createDescriptorPool();
     createDescriptorSets();
-    createCommandPool();
     createCommandBuffers();
     createPipelineSync();
     setTexturesLayouts();
