@@ -34,7 +34,7 @@ void GpuVulkan::createInstance()
         extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 
         unsigned int layerCount;
-        vk::enumerateInstanceLayerProperties(&layerCount, nullptr);
+        vk::enumerateInstanceLayerProperties(&layerCount, {});
         std::vector<vk::LayerProperties> availableLayers(layerCount);
         vk::enumerateInstanceLayerProperties(&layerCount, availableLayers.data());
         bool enableValidation = true;
@@ -63,9 +63,9 @@ void GpuVulkan::createInstance()
 
 	//to check if needed extensions are supported
 	/*unsigned int extensionCount = 0;
-	vk::enumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+	vk::enumerateInstanceExtensionProperties({}, &extensionCount, {});
 	std::vector<vk::ExtensionProperties> supportedExt(extensionCount);
-	vk::enumerateInstanceExtensionProperties(nullptr, &extensionCount, supportedExt.data());*/
+	vk::enumerateInstanceExtensionProperties({}, &extensionCount, supportedExt.data());*/
 
 	//instance.createDebugReportCallbackEXT();
 }
@@ -78,7 +78,7 @@ bool GpuVulkan::isDeviceOK(const vk::PhysicalDevice &potDevice)
 		if(properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu && features.geometryShader)
 		{
 			unsigned int queueFamilyCount = 0;
-			potDevice.getQueueFamilyProperties(&queueFamilyCount, nullptr);
+			potDevice.getQueueFamilyProperties(&queueFamilyCount, {});
 			std::vector<vk::QueueFamilyProperties> queueFamilies(queueFamilyCount);
 			potDevice.getQueueFamilyProperties(&queueFamilyCount, queueFamilies.data());
 			
@@ -108,7 +108,7 @@ bool GpuVulkan::isDeviceOK(const vk::PhysicalDevice &potDevice)
 void GpuVulkan::selectPhysicalDevice()
 {
 	unsigned int deviceCount = 0;
-	instance->enumeratePhysicalDevices(&deviceCount, nullptr);
+	instance->enumeratePhysicalDevices(&deviceCount, {});
 	if(deviceCount == 0)
 		throw std::runtime_error("No available Vulkan devices.");
 
@@ -156,7 +156,7 @@ void GpuVulkan::createDevice()
 				.setPpEnabledLayerNames(validationLayers.data())
                 .setEnabledExtensionCount(deviceExtensions.size())
                 .setPpEnabledExtensionNames(deviceExtensions.data()); 
-	if(!(device = physicalDevice.createDeviceUnique(createInfo, nullptr)))
+	if(!(device = physicalDevice.createDeviceUnique(createInfo)))
 		throw std::runtime_error("Cannot create a logical device.");
 
 	queues.graphics = device->getQueue(queueFamilyIDs.graphics, 0);
@@ -184,12 +184,12 @@ void GpuVulkan::createSwapChain()
 	physicalDevice.getSurfaceCapabilitiesKHR(*surface, &surfaceCapabilities);
 
 	unsigned int formatCount;
-	physicalDevice.getSurfaceFormatsKHR(*surface, &formatCount, nullptr);
+	physicalDevice.getSurfaceFormatsKHR(*surface, &formatCount, {});
 	std::vector<vk::SurfaceFormatKHR> formats(formatCount);
 	physicalDevice.getSurfaceFormatsKHR(*surface, &formatCount, formats.data());
 	
 	unsigned int pmCount;
-	physicalDevice.getSurfacePresentModesKHR(*surface, &pmCount, nullptr);
+	physicalDevice.getSurfacePresentModesKHR(*surface, &pmCount, {});
 	std::vector<vk::PresentModeKHR> presentModes(pmCount);
 	physicalDevice.getSurfacePresentModesKHR(*surface, &pmCount, presentModes.data());
 
@@ -253,9 +253,9 @@ void GpuVulkan::createSwapChain()
 	else
 		createInfo	.setImageSharingMode(vk::SharingMode::eExclusive);
 
-    if(!(swapChain = device->createSwapchainKHRUnique(createInfo, nullptr)))
+    if(!(swapChain = device->createSwapchainKHRUnique(createInfo)))
 		throw std::runtime_error("Failed to create swap chain.");
-    device->getSwapchainImagesKHR(*swapChain, &imageCount, nullptr);
+    device->getSwapchainImagesKHR(*swapChain, &imageCount, {});
     std::vector<vk::Image> swapChainImages(imageCount);
 
 	device->getSwapchainImagesKHR(*swapChain, &imageCount, swapChainImages.data());
@@ -408,7 +408,7 @@ void GpuVulkan::createGraphicsPipeline()
     shaderStages.at(0)  .setStage(vk::ShaderStageFlagBits::eVertex)
                         .setModule(*vertexModule)
                         .setPName("main")
-                        .setPSpecializationInfo(nullptr); //can set shader constants - changing behaviour at creation
+                        .setPSpecializationInfo({}); //can set shader constants - changing behaviour at creation
     shaderStages.at(1)  .setStage(vk::ShaderStageFlagBits::eFragment)
                         .setModule(*fragmentModule)
                         .setPName("main")
@@ -464,7 +464,7 @@ void GpuVulkan::createGraphicsPipeline()
     multisampleInfo .setSampleShadingEnable(false)
                     .setRasterizationSamples(vk::SampleCountFlagBits::e1)
                     .setMinSampleShading(1.0f)
-                    .setPSampleMask(nullptr)
+                    .setPSampleMask({})
                     .setAlphaToCoverageEnable(false)
                     .setAlphaToOneEnable(false);
 
@@ -492,7 +492,7 @@ void GpuVulkan::createGraphicsPipeline()
     layoutInfo  .setSetLayoutCount(1)
                 .setPSetLayouts(&*descriptorSetLayout)
                 .setPushConstantRangeCount(0)
-                .setPPushConstantRanges(nullptr);
+                .setPPushConstantRanges({});
 
     if(!(pipelineLayout = device->createPipelineLayoutUnique(layoutInfo)))
         throw std::runtime_error("Cannot create pipeline layout.");
@@ -518,14 +518,14 @@ void GpuVulkan::createGraphicsPipeline()
                 .setPMultisampleState(&multisampleInfo)
                 .setPDepthStencilState(&depthStencil)
                 .setPColorBlendState(&blendStateInfo)
-                .setPDynamicState(nullptr)
+                .setPDynamicState({})
                 .setLayout(*pipelineLayout)
                 .setRenderPass(*renderPass)
                 .setSubpass(0)
-                .setBasePipelineHandle(nullptr)
+                .setBasePipelineHandle({})
                 .setBasePipelineIndex(-1);
     
-    if(!(graphicsPipeline = (device->createGraphicsPipelineUnique(nullptr, createInfo))))
+    if(!(graphicsPipeline = (device->createGraphicsPipelineUnique({}, createInfo))))
         throw std::runtime_error("Cannot create graphics pipeline.");
 }
 
@@ -543,7 +543,7 @@ void GpuVulkan::createFramebuffers()
                     .setHeight(extent.height)
                     .setLayers(1);
 
-        if(!(frame->frameBuffer = device->createFramebufferUnique(createInfo, nullptr)))
+        if(!(frame->frameBuffer = device->createFramebufferUnique(createInfo)))
             throw std::runtime_error("Cannot create frame buffer.");
     }
 }
@@ -553,7 +553,7 @@ void GpuVulkan::createCommandPool()
     vk::CommandPoolCreateInfo createInfo;
     createInfo  .setQueueFamilyIndex(queueFamilyIDs.graphics);
 
-    if(!(commandPool = device->createCommandPoolUnique(createInfo, nullptr)))
+    if(!(commandPool = device->createCommandPoolUnique(createInfo)))
         throw std::runtime_error("Cannot create command pool.");
 }
 
@@ -569,7 +569,7 @@ void GpuVulkan::createCommandBuffers()
             throw std::runtime_error("Failed to allocate command buffers.");
         vk::CommandBufferBeginInfo bufferBeginInfo;
         bufferBeginInfo .setFlags(vk::CommandBufferUsageFlagBits::eSimultaneousUse)
-                        .setPInheritanceInfo(nullptr);
+                        .setPInheritanceInfo({});
 
         if(frame->commandBuffer->begin(&bufferBeginInfo) != vk::Result::eSuccess)
             throw std::runtime_error("Command buffer recording couldn't begin.");
@@ -587,7 +587,7 @@ void GpuVulkan::createCommandBuffers()
         vk::DeviceSize offsets[] = {0};
         frame->commandBuffer->bindVertexBuffers(0, 1, &*buffers.vertex.buffer, offsets);
         frame->commandBuffer->bindIndexBuffer(*buffers.index.buffer, 0, vk::IndexType::eUint16);
-        frame->commandBuffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pipelineLayout, 0, 1, &*frame->descriptorSet, 0, nullptr);
+        frame->commandBuffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pipelineLayout, 0, 1, &*frame->descriptorSet, 0, {});
         frame->commandBuffer->drawIndexed(100, 1, 0, 0, 0);
         frame->commandBuffer->endRenderPass();
 
@@ -717,7 +717,7 @@ void GpuVulkan::createDescriptorSets()
 //                        .setSampler(*texture.sampler);
             imageInfo   .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                         .setImageView(*textures.images[i].imageView)
-                        .setSampler(nullptr);
+                        .setSampler({});
             imageInfos.push_back(imageInfo);
         }
 
@@ -748,7 +748,7 @@ void GpuVulkan::createDescriptorSets()
                 .setPImageInfo(&samplerInfo);
 
        std::vector<vk::WriteDescriptorSet> writeSets{uboWriteSet, textureWriteSet, samplerWriteSet};
-       device->updateDescriptorSets(writeSets.size(), writeSets.data(), 0, nullptr);     
+       device->updateDescriptorSets(writeSets.size(), writeSets.data(), 0, {});     
     }
 }
 
@@ -958,7 +958,7 @@ void GpuVulkan::transitionImageLayout(vk::Image image, vk::Format format, vk::Im
     else
         throw std::runtime_error("Layout transitions not supported");
 
-    commandBuffer->pipelineBarrier(srcStageFlags, dstStageFlags, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &barrier);
+    commandBuffer->pipelineBarrier(srcStageFlags, dstStageFlags, vk::DependencyFlags(), 0, {}, 0, {}, 1, &barrier);
 
     oneTimeCommandsEnd(*commandBuffer);
 }
@@ -1048,7 +1048,7 @@ void GpuVulkan::render()
     device->waitForFences(1, &*pipelineSync.at(processedFrame).fence, VK_TRUE, std::numeric_limits<uint64_t>::max());
 
     unsigned int imageID;
-    if(device->acquireNextImageKHR(*swapChain, std::numeric_limits<uint64_t>::max(), *pipelineSync.at(processedFrame).semaphores.imgReady, nullptr, &imageID) == vk::Result::eErrorOutOfDateKHR)
+    if(device->acquireNextImageKHR(*swapChain, std::numeric_limits<uint64_t>::max(), *pipelineSync.at(processedFrame).semaphores.imgReady, {}, &imageID) == vk::Result::eErrorOutOfDateKHR)
     {
         recreateSwapChain();
         return;
